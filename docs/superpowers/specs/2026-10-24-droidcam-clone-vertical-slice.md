@@ -52,7 +52,7 @@ flowchart LR
   RTP --> UDP[UDP video packets]
   UDP --> RX[RTP depacketizer + bounded jitter/reassembly]
   RX --> MF[Windows Media Foundation H.264 decoder]
-  MF --> PREVIEW[D3D11 / Windows preview]
+  MF --> PREVIEW[GDI Windows preview]
   TELE[Stage timing, queue age, sequence/drop counters] -.-> A
   TELE -.-> RTP
   TELE -.-> RX
@@ -71,7 +71,7 @@ flowchart LR
 
 - Native C++ desktop receiver with a minimal window, control TCP session, UDP/RTP receiver, H.264 depacketizer, Media Foundation decoder, and preview renderer.
 - Keep the RTP receive/reassembly and decoder submission queues bounded. Detect missing/incomplete access units, discard stale frames, and recover at a valid keyframe rather than feeding arbitrary partial H.264 data.
-- Prefer a D3D11-backed decode/render path where supported. Fall back to a software decoder or report unsupported configuration; do not require a virtual-camera driver for this milestone.
+- Prefer hardware Media Foundation decoding where available and fall back to a software decoder. The first implementation presents RGB32 frames through GDI; D3D11 surface sharing/rendering is deferred until the GDI baseline is measured.
 - Expose receive FPS, decode FPS, queue age, packet loss, frame drops, selected codec, and hardware/software decode mode in a diagnostic overlay or log.
 
 ### Session protocol and security boundary

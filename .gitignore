@@ -1,1 +1,13 @@
 /official-binaries/
+# Android Gradle outputs and local SDK path
+/android/.gradle/
+/android/build/
+/android/local.properties
+/android/app/build/
+/android/dist/
+
+# Native build outputs
+/windows/build/
+/windows/build-*/
+/windows/out/
+/windows/dist/

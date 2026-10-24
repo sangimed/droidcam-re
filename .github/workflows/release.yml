@@ -1,0 +1,181 @@
+name: Publish release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  android:
+    name: Signed Android APK
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@be39fa834029ff78f1a44aa3bb0819b8fc2bd8fd # v4.0.4
+        with:
+          packages: "platforms;android-36 build-tools;36.0.0"
+
+      - name: Validate version tag
+        id: version
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          if [[ ! "$RELEASE_TAG" =~ ^v(0|[1-9][0-9]{0,3})\.(0|[1-9][0-9]{0,2})\.(0|[1-9][0-9]{0,2})$ ]]; then
+            echo "::error::Release tags must use canonical vMAJOR.MINOR.PATCH format (for example v1.2.3)."
+            exit 1
+          fi
+          version="${RELEASE_TAG#v}"
+          IFS=. read -r major minor patch <<< "$version"
+          if (( major > 2099 || minor > 999 || patch > 999 )); then
+            echo "::error::Version components exceed the supported Android versionCode range."
+            exit 1
+          fi
+          version_code=$((major * 1000000 + minor * 1000 + patch + 1))
+          echo "name=$version" >> "$GITHUB_OUTPUT"
+          echo "code=$version_code" >> "$GITHUB_OUTPUT"
+
+      - name: Require Android release signing secrets
+        shell: bash
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          missing=()
+          for name in ANDROID_KEYSTORE_BASE64 ANDROID_KEYSTORE_PASSWORD ANDROID_KEY_ALIAS ANDROID_KEY_PASSWORD; do
+            if [[ -z "${!name}" ]]; then missing+=("$name"); fi
+          done
+          if ((${#missing[@]})); then
+            echo "::error::Configure these repository Actions secrets before tagging a release: ${missing[*]}"
+            exit 1
+          fi
+
+      - name: Restore Android signing key
+        id: signing
+        shell: bash
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          set -euo pipefail
+          key_path="$RUNNER_TEMP/android-upload-key.jks"
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$key_path"
+          chmod 600 "$key_path"
+          echo "path=$key_path" >> "$GITHUB_OUTPUT"
+
+      - name: Build and sign release APK
+        shell: bash
+        env:
+          APP_VERSION_CODE: ${{ steps.version.outputs.code }}
+          APP_VERSION_NAME: ${{ steps.version.outputs.name }}
+          ANDROID_KEYSTORE_PATH: ${{ steps.signing.outputs.path }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          chmod +x ./gradlew
+          ./gradlew --no-daemon \
+            -PAPP_VERSION_CODE="$APP_VERSION_CODE" \
+            -PAPP_VERSION_NAME="$APP_VERSION_NAME" \
+            assembleRelease
+          mkdir -p dist/android
+          cp app/build/outputs/apk/release/app-release.apk \
+            "dist/android/droidcam-clone-android-v${APP_VERSION_NAME}.apk"
+        working-directory: android
+
+      - name: Upload signed Android APK
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: android-release-apk
+          path: android/dist/android/*.apk
+          if-no-files-found: error
+          retention-days: 7
+
+  windows:
+    name: Windows x64 release ZIP
+    runs-on: windows-2022
+    steps:
+      - name: Check out source
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - name: Configure Windows x64 Release build
+        run: cmake -S windows -B windows/build -A x64
+
+      - name: Build Windows x64 Release executable
+        run: cmake --build windows/build --config Release --parallel
+
+      - name: Package Windows release ZIP
+        shell: pwsh
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          $dist = Join-Path $PWD 'windows/dist/windows'
+          $stage = Join-Path $env:RUNNER_TEMP 'droidcam-clone-windows-stage'
+          New-Item -ItemType Directory -Force -Path $stage, $dist | Out-Null
+          Copy-Item -LiteralPath 'windows/build/Release/droidcam_clone.exe' -Destination $stage
+          Copy-Item -LiteralPath 'README.md' -Destination $stage
+          $archive = Join-Path $dist "droidcam-clone-windows-$env:RELEASE_TAG-x64.zip"
+          Compress-Archive -Path (Join-Path $stage '*') -DestinationPath $archive -Force
+
+      - name: Upload Windows release ZIP
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: windows-release-zip
+          path: windows/dist/windows/*.zip
+          if-no-files-found: error
+          retention-days: 7
+
+  publish:
+    name: Publish GitHub Release
+    needs: [android, windows]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download signed Android APK
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          name: android-release-apk
+          path: release-assets
+
+      - name: Download Windows release ZIP
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          name: windows-release-zip
+          path: release-assets
+
+      - name: Generate SHA-256 checksums
+        run: sha256sum release-assets/*.apk release-assets/*.zip > release-assets/SHA256SUMS.txt
+
+      - name: Publish release and attach deliverables
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          gh release create "$RELEASE_TAG" release-assets/*.apk release-assets/*.zip \
+            release-assets/SHA256SUMS.txt --verify-tag --generate-notes \
+            --title "DroidCam Clone $RELEASE_TAG" --repo "$GITHUB_REPOSITORY"

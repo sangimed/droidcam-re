@@ -1,0 +1,87 @@
+name: Build clients
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  android:
+    name: Android debug APK
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@be39fa834029ff78f1a44aa3bb0819b8fc2bd8fd # v4.0.4
+        with:
+          packages: "platforms;android-36 build-tools;36.0.0"
+
+      - name: Build Android debug APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          chmod +x ./gradlew
+          ./gradlew --no-daemon assembleDebug
+          mkdir -p dist/android
+          cp app/build/outputs/apk/debug/app-debug.apk dist/android/droidcam-clone-android-debug.apk
+        working-directory: android
+
+      - name: Upload Android CI artifact
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: android-debug-apk
+          path: android/dist/android/*.apk
+          if-no-files-found: error
+          retention-days: 14
+
+  windows:
+    name: Windows x64 build
+    runs-on: windows-2022
+    steps:
+      - name: Check out source
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - name: Configure Windows x64 build
+        run: cmake -S windows -B windows/build -A x64
+
+      - name: Build Windows x64 executable
+        run: cmake --build windows/build --config Release --parallel
+
+      - name: Package Windows x64 CI artifact
+        shell: pwsh
+        run: |
+          $dist = Join-Path $PWD 'windows/dist/windows'
+          $stage = Join-Path $env:RUNNER_TEMP 'droidcam-clone-windows-stage'
+          New-Item -ItemType Directory -Force -Path $stage, $dist | Out-Null
+          Copy-Item -LiteralPath 'windows/build/Release/droidcam_clone.exe' -Destination $stage
+          Copy-Item -LiteralPath 'README.md' -Destination $stage
+          Compress-Archive -Path (Join-Path $stage '*') -DestinationPath (Join-Path $dist 'droidcam-clone-windows-ci-x64.zip') -Force
+
+      - name: Upload Windows CI artifact
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: windows-x64-zip
+          path: windows/dist/windows/*.zip
+          if-no-files-found: error
+          retention-days: 14

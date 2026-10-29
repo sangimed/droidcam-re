@@ -13,26 +13,36 @@ namespace clone_vcam {
 
 namespace {
 
-std::wstring GetModuleDir() {
+std::wstring GetCurrentModulePath() {
+    HMODULE hModule = nullptr;
+    GetModuleHandleExW(
+        GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+        reinterpret_cast<LPCWSTR>(&GetCurrentModulePath),
+        &hModule);
     wchar_t path[MAX_PATH]{};
-    GetModuleFileNameW(nullptr, path, MAX_PATH);
-    PathRemoveFileSpecW(path);
+    GetModuleFileNameW(hModule, path, MAX_PATH);
     return path;
 }
 
 std::wstring FindDllPath() {
-    std::wstring dir = GetModuleDir();
-    std::wstring candidate = dir + L"\\droidcam_clone_virtual_camera.dll";
+    std::wstring modPath = GetCurrentModulePath();
+    if (modPath.ends_with(L".dll") || modPath.ends_with(L".DLL")) {
+        return modPath;
+    }
+    wchar_t dir[MAX_PATH]{};
+    wcscpy_s(dir, modPath.c_str());
+    PathRemoveFileSpecW(dir);
+    std::wstring candidate = std::wstring(dir) + L"\\droidcam_clone_virtual_camera.dll";
     if (GetFileAttributesW(candidate.c_str()) != INVALID_FILE_ATTRIBUTES) {
         return candidate;
     }
-    // Check Release subdirectory if running from build
-    candidate = dir + L"\\Release\\droidcam_clone_virtual_camera.dll";
+    candidate = std::wstring(dir) + L"\\Release\\droidcam_clone_virtual_camera.dll";
     if (GetFileAttributesW(candidate.c_str()) != INVALID_FILE_ATTRIBUTES) {
         return candidate;
     }
-    return dir + L"\\droidcam_clone_virtual_camera.dll";
+    return std::wstring(dir) + L"\\droidcam_clone_virtual_camera.dll";
 }
+
 
 HRESULT RegisterComServer(HKEY root, const std::wstring& clsid, const std::wstring& dllPath,
                           const std::wstring& installationId) {
@@ -144,6 +154,8 @@ HRESULT VirtualCameraRegistration::EnsureInstalled(const std::wstring& installat
         hr = vcam->Start(nullptr);
     }
     return hr;
+
+
 }
 
 HRESULT VirtualCameraRegistration::Start() {
@@ -162,6 +174,8 @@ HRESULT VirtualCameraRegistration::Start() {
         hr = vcam->Start(nullptr);
     }
     return hr;
+
+
 }
 
 HRESULT VirtualCameraRegistration::Stop() {

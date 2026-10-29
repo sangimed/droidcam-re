@@ -9,14 +9,23 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.HandlerThread
 import android.view.Surface
+import android.util.Log
 import dev.droidcamclone.net.VideoProfile
 import java.nio.ByteBuffer
+import java.util.concurrent.atomic.AtomicLong
 
-data class EncoderChoice(val name: String, val minBitrate: Int, val maxBitrate: Int)
+data class EncoderChoice(
+    val name: String,
+    val minBitrate: Int,
+    val maxBitrate: Int,
+    val mode: String,
+)
 
 data class EncodedAccessUnit(
     val data: ByteArray,
     val presentationTimeUs: Long,
+    val sequenceNumber: Long,
+    val encodedAtMonotonicNs: Long,
     val isCodecConfig: Boolean,
     val isKeyFrame: Boolean,
 )
@@ -33,12 +42,18 @@ class H264Encoder(
     private var codec: MediaCodec? = null
     private var callbackThread: HandlerThread? = null
     private var started = false
+    private val frameSequence = AtomicLong()
 
     fun start(): Surface {
         check(!started)
-        val choice = profile.encoderName?.let { name -> findEncoder(profile.width, profile.height, profile.fps, name) }
-            ?: findEncoder(profile.width, profile.height, profile.fps)
-            ?: throw IllegalStateException("No H.264 encoder supports 1920×1080 at ${profile.fps} fps")
+        val choice = if (profile.encoderName != null) {
+            findEncoder(profile.width, profile.height, profile.fps, profile.encoderName)
+        } else {
+            findEncoder(profile.width, profile.height, profile.fps)
+        } ?: throw IllegalStateException(
+            profile.encoderName?.let { "Selected H.264 encoder $it no longer supports ${profile.width}×${profile.height} at ${profile.fps} fps" }
+                ?: "No H.264 encoder supports ${profile.width}×${profile.height} at ${profile.fps} fps",
+        )
 
         val format = MediaFormat.createVideoFormat(MediaFormat.MIMETYPE_VIDEO_AVC, profile.width, profile.height).apply {
             setInteger(MediaFormat.KEY_COLOR_FORMAT, MediaCodecInfo.CodecCapabilities.COLOR_FormatSurface)
@@ -54,6 +69,7 @@ class H264Encoder(
                 setInteger(MediaFormat.KEY_BITRATE_MODE, MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_VBR)
             }
         }
+        Log.i("CloneH264Encoder", "Requested ${choice.name}: $format")
 
         callbackThread = HandlerThread("CloneH264Encoder").apply { start() }
         val handler = Handler(callbackThread!!.looper)
@@ -70,11 +86,14 @@ class H264Encoder(
                     source.limit(info.offset + info.size)
                     source.get(data)
                     if (data.isNotEmpty()) {
+                        val isCodecConfig = info.flags and MediaCodec.BUFFER_FLAG_CODEC_CONFIG != 0
                         listener.onAccessUnit(
                             EncodedAccessUnit(
                                 data = data,
                                 presentationTimeUs = info.presentationTimeUs,
-                                isCodecConfig = info.flags and MediaCodec.BUFFER_FLAG_CODEC_CONFIG != 0,
+                                sequenceNumber = if (isCodecConfig) 0L else frameSequence.incrementAndGet(),
+                                encodedAtMonotonicNs = System.nanoTime(),
+                                isCodecConfig = isCodecConfig,
                                 isKeyFrame = info.flags and MediaCodec.BUFFER_FLAG_KEY_FRAME != 0,
                             ),
                         )
@@ -91,9 +110,10 @@ class H264Encoder(
             }
 
             override fun onOutputFormatChanged(codec: MediaCodec, format: MediaFormat) {
+                Log.i("CloneH264Encoder", "Actual ${choice.name}: $format")
                 val config = combineCodecConfig(format.getByteBuffer("csd-0"), format.getByteBuffer("csd-1"))
                 if (config.isNotEmpty()) {
-                    listener.onAccessUnit(EncodedAccessUnit(config, 0L, isCodecConfig = true, isKeyFrame = false))
+                    listener.onAccessUnit(EncodedAccessUnit(config, 0L, 0L, System.nanoTime(), isCodecConfig = true, isKeyFrame = false))
                 }
             }
         }, handler)
@@ -126,6 +146,10 @@ class H264Encoder(
 
     companion object {
         fun findEncoder(width: Int, height: Int, fps: Int, preferredName: String? = null): EncoderChoice? {
+            return findEncoders(width, height, fps, preferredName).firstOrNull()
+        }
+
+        fun findEncoders(width: Int, height: Int, fps: Int, preferredName: String? = null): List<EncoderChoice> {
             val infos = MediaCodecList(MediaCodecList.REGULAR_CODECS).codecInfos
                 .filter { info -> info.isEncoder && info.supportedTypes.any { it.equals(MediaFormat.MIMETYPE_VIDEO_AVC, true) } }
                 .let { list ->
@@ -134,13 +158,20 @@ class H264Encoder(
                 .sortedByDescending { info ->
                     Build.VERSION.SDK_INT >= 29 && info.isHardwareAccelerated
                 }
-            return infos.firstNotNullOfOrNull { info ->
+            return infos.mapNotNull { info ->
                 runCatching {
                     val caps = info.getCapabilitiesForType(MediaFormat.MIMETYPE_VIDEO_AVC)
                     if (MediaCodecInfo.CodecCapabilities.COLOR_FormatSurface !in caps.colorFormats) return@runCatching null
                     val video = caps.videoCapabilities
                     if (!video.areSizeAndRateSupported(width, height, fps.toDouble())) return@runCatching null
-                    EncoderChoice(info.name, video.bitrateRange.lower, video.bitrateRange.upper)
+                    val mode = if (Build.VERSION.SDK_INT >= 29) {
+                        when {
+                            info.isHardwareAccelerated -> "hardware"
+                            info.isSoftwareOnly -> "software"
+                            else -> "other"
+                        }
+                    } else "type unknown"
+                    EncoderChoice(info.name, video.bitrateRange.lower, video.bitrateRange.upper, mode)
                 }.getOrNull()
             }
         }

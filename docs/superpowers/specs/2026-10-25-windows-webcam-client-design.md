@@ -1,10 +1,10 @@
 # Windows webcam client — design
 
-Date: 2026-10-25. Status: draft for owner approval after builder check.
+Date: 2026-10-25. Status: approved by the owner after builder check.
 
 ## Intent and evidence
 
-Turn the existing Android-to-Windows preview prototype into a usable video webcam client. The owner approved the scope in the grilling and selected the Windows 11 Media Foundation approach. Approval of this written design is still pending.
+Turn the existing Android-to-Windows preview prototype into a usable video webcam client. The owner approved the scope in the grilling, selected the Windows 11 Media Foundation approach, and approved this written design.
 
 The current C++20 receiver already accepts clone-protocol TCP control and H.264/RTP video, decodes through Media Foundation, and displays BGRA through GDI. Android uses Camera2 and MediaCodec. Tablet E2E evidence is recorded in `../../research/droidcam/tablet-e2e-2026-10-25.md`. That evidence validates the existing stream, not the new virtual camera or discovery.
 

@@ -61,7 +61,9 @@ bool ParseHelloRecord(std::span<const std::uint8_t> record, Hello& hello, std::s
     hello.codec = record[27];
     hello.payloadType = record[28];
     hello.ssrc = ReadU32(record.data() + 29);
-    if (hello.width != 1920 || hello.height != 1080 ||
+    const bool supportedSize = (hello.width == 1280 && hello.height == 720) ||
+                               (hello.width == 1920 && hello.height == 1080);
+    if (!supportedSize ||
         (hello.fps != 30 && hello.fps != 60) || hello.codec != 1 ||
         hello.payloadType != kH264PayloadType) {
         error = "unsupported profile";

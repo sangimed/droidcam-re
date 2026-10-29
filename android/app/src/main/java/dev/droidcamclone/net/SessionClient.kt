@@ -24,9 +24,10 @@ class SessionClient(private val stats: FrameStats = FrameStats()) {
         fun onDisconnected(message: String)
     }
 
-    private data class PacketBatch(val datagrams: List<ByteArray>)
+    private data class PacketBatch(val datagrams: List<ByteArray>, val enqueuedAtNs: Long)
 
     private val closing = AtomicBoolean(false)
+    private val lifecycleLock = Any()
     private val packetQueue = ArrayBlockingQueue<PacketBatch>(2)
     private val writeLock = Any()
     @Volatile private var controlSocket: Socket? = null
@@ -44,17 +45,18 @@ class SessionClient(private val stats: FrameStats = FrameStats()) {
         controlThread = Thread({ runSession(host, profile, listener) }, "CloneSessionControl").apply { start() }
     }
 
-    fun sendAccessUnit(accessUnit: ByteArray, presentationTimeUs: Long) {
+    fun sendAccessUnit(accessUnit: ByteArray, presentationTimeUs: Long, sequenceNumber: Long, encodedAtNs: Long) {
         if (closing.get()) return
         val currentPacketizer = packetizer ?: return
         try {
-            stats.onEncoded()
+            stats.onEncoded(sequenceNumber, encodedAtNs)
             val datagrams = currentPacketizer.packetize(accessUnit, presentationTimeUs)
             if (datagrams.isEmpty()) return
-            if (!packetQueue.offer(PacketBatch(datagrams))) {
+            val batch = PacketBatch(datagrams, System.nanoTime())
+            if (!packetQueue.offer(batch)) {
                 // Prefer the newest complete frame when the network sender falls behind.
                 packetQueue.poll()
-                packetQueue.offer(PacketBatch(datagrams))
+                packetQueue.offer(batch)
                 stats.onQueueDrop()
             }
         } catch (_: IllegalArgumentException) {
@@ -62,14 +64,22 @@ class SessionClient(private val stats: FrameStats = FrameStats()) {
         }
     }
 
-    fun statsSnapshot(): FrameStats.Snapshot = stats.snapshot()
+    fun statsSnapshot(): FrameStats.Snapshot = stats.snapshot(packetQueue.size, packetQueue.peek()?.enqueuedAtNs ?: 0L)
+
+    fun onCameraFrame(sensorTimestampNs: Long, frameNumber: Long) {
+        stats.onCameraFrame(sensorTimestampNs, frameNumber)
+    }
 
     fun close() {
-        if (!closing.compareAndSet(false, true)) return
-        val id = sessionId
-        if (id != null) runCatching { sendControl(SessionProtocol.encodeClose(id)) }
-        runCatching { controlSocket?.close() }
-        runCatching { videoSocket?.close() }
+        synchronized(lifecycleLock) {
+            if (!closing.compareAndSet(false, true)) return
+            val id = sessionId
+            if (id != null) runCatching { sendControl(SessionProtocol.encodeClose(id)) }
+            runCatching { controlSocket?.close() }
+            runCatching { videoSocket?.close() }
+            controlSocket = null
+            videoSocket = null
+        }
         controlSocket = null
         videoSocket = null
         packetQueue.clear()
@@ -85,11 +95,17 @@ class SessionClient(private val stats: FrameStats = FrameStats()) {
     private fun runSession(host: String, profile: VideoProfile, listener: Listener) {
         try {
             val address = InetAddress.getByName(host)
-            val socket = Socket().apply {
-                tcpNoDelay = true
-                connect(InetSocketAddress(address, SessionProtocol.CONTROL_PORT), CONNECT_TIMEOUT_MS)
+            val socket = Socket()
+            synchronized(lifecycleLock) {
+                if (closing.get()) {
+                    socket.close()
+                    return
+                }
+                controlSocket = socket
             }
-            controlSocket = socket
+            socket.tcpNoDelay = true
+            socket.connect(InetSocketAddress(address, SessionProtocol.CONTROL_PORT), CONNECT_TIMEOUT_MS)
+            if (closing.get()) return
             val output = DataOutputStream(BufferedOutputStream(socket.getOutputStream()))
             val input = DataInputStream(BufferedInputStream(socket.getInputStream()))
             controlOutput = output
@@ -100,11 +116,19 @@ class SessionClient(private val stats: FrameStats = FrameStats()) {
             sendControl(SessionProtocol.encodeHello(id, profile, ssrc))
             val accept = SessionProtocol.decodeAccept(readRecord(input))
             require(accept.sessionId == id) { "Windows accepted a different session ID" }
+            if (closing.get()) return
 
             val udp = DatagramSocket()
-            videoSocket = udp
+            synchronized(lifecycleLock) {
+                if (closing.get()) {
+                    udp.close()
+                    return
+                }
+                videoSocket = udp
+            }
             destination = InetSocketAddress(address, accept.videoPort)
             packetizer = RtpH264Packetizer(ssrc, accept.maxRtpPayload, SecureRandom().nextInt(0x10000))
+            if (closing.get()) return
             startSender(listener)
             listener.onConnected(accept)
 
@@ -127,13 +151,15 @@ class SessionClient(private val stats: FrameStats = FrameStats()) {
 
     private fun startSender(listener: Listener) {
         senderThread = Thread({
+            val target = destination ?: return@Thread
+            val datagram = DatagramPacket(ByteArray(0), 0, target)
             while (!closing.get()) {
                 try {
                     val batch = packetQueue.take()
                     val socket = videoSocket ?: break
-                    val target = destination ?: break
                     batch.datagrams.forEach { bytes ->
-                        socket.send(DatagramPacket(bytes, bytes.size, target))
+                        datagram.setData(bytes, 0, bytes.size)
+                        socket.send(datagram)
                         stats.onSent()
                     }
                 } catch (_: InterruptedException) {

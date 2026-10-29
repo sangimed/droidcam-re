@@ -12,6 +12,7 @@ constexpr std::size_t kRtpHeaderBytes = 12;
 constexpr std::size_t kMaxAccessUnit = 8 * 1024 * 1024;
 constexpr std::uint8_t kPayloadType = 96;
 constexpr std::uint8_t kFuA = 28;
+constexpr auto kStreamStallTimeout = std::chrono::milliseconds(750);
 
 std::uint16_t ReadU16(const std::uint8_t* p) {
     return static_cast<std::uint16_t>((static_cast<std::uint16_t>(p[0]) << 8) | p[1]);
@@ -27,14 +28,18 @@ std::uint32_t ReadU32(const std::uint8_t* p) {
 
 RtpH264Receiver::RtpH264Receiver(SOCKET socket, std::uint32_t expectedSsrc,
                                  AccessUnitCallback onAccessUnit, KeyframeCallback onKeyframeNeeded,
-                                 std::uint32_t expectedPeerAddress)
+                                 std::uint32_t expectedPeerAddress, StatsCallback onStats)
     : socket_(socket), expectedSsrc_(expectedSsrc), onAccessUnit_(std::move(onAccessUnit)),
-      onKeyframeNeeded_(std::move(onKeyframeNeeded)), expectedPeerAddress_(expectedPeerAddress) {}
+      onKeyframeNeeded_(std::move(onKeyframeNeeded)), onStats_(std::move(onStats)),
+      expectedPeerAddress_(expectedPeerAddress) {}
 
 RtpH264Receiver::~RtpH264Receiver() { Stop(); }
 
 void RtpH264Receiver::Start() {
     if (running_.exchange(true)) return;
+    lastPacketTime_ = std::chrono::steady_clock::now();
+    streamStalled_ = false;
+    stallRequestSent_ = false;
     DWORD timeoutMs = 100;
     setsockopt(socket_, SOL_SOCKET, SO_RCVTIMEO, reinterpret_cast<const char*>(&timeoutMs), sizeof(timeoutMs));
     receiveThread_ = std::thread(&RtpH264Receiver::ReceiveLoop, this);
@@ -59,10 +64,23 @@ void RtpH264Receiver::ReceiveLoop() {
             const int error = WSAGetLastError();
             if (!running_.load()) continue;
             if (error == WSAETIMEDOUT || error == WSAEWOULDBLOCK) {
-                if ((!currentAccessUnit_.empty() || fuActive_) && lastPacketTime_.time_since_epoch().count() != 0 &&
-                    std::chrono::steady_clock::now() - lastPacketTime_ > std::chrono::milliseconds(100)) {
+                const auto now = std::chrono::steady_clock::now();
+                if ((!currentAccessUnit_.empty() || fuActive_) && now - lastPacketTime_ > std::chrono::milliseconds(100)) {
                     DropCurrentAccessUnit(true);
                 }
+                const auto idleMs = static_cast<std::uint64_t>(std::chrono::duration_cast<std::chrono::milliseconds>(now - lastPacketTime_).count());
+                if (idleMs >= static_cast<std::uint64_t>(kStreamStallTimeout.count()) && !streamStalled_) {
+                    streamStalled_ = true;
+                    if (!stallRequestSent_) {
+                        stallRequestSent_ = true;
+                        if (!keyframeRequestPending_) {
+                            keyframeRequestPending_ = true;
+                            onKeyframeNeeded_();
+                        }
+                    }
+                }
+                if (onStats_) onStats_(received_.load(), lostPackets_.load(), reorderedPackets_.load(),
+                                       dropped_.load(), streamStalled_, idleMs);
                 continue;
             }
             break;
@@ -73,8 +91,30 @@ void RtpH264Receiver::ReceiveLoop() {
             continue;
         }
         if (expectedPeerAddress_ != 0 && sender.sin_addr.s_addr != expectedPeerAddress_) continue;
-        lastPacketTime_ = std::chrono::steady_clock::now();
+        const auto now = std::chrono::steady_clock::now();
+        const bool expectedRtpStream = size >= static_cast<int>(kRtpHeaderBytes) &&
+            (buffer[0] >> 6) == 2 && (buffer[1] & 0x7f) == kPayloadType &&
+            ReadU32(buffer.data() + 8) == expectedSsrc_;
+        if (expectedRtpStream) {
+            lastPacketTime_ = now;
+            streamStalled_ = false;
+            stallRequestSent_ = false;
+        }
         ProcessDatagram(buffer.data(), static_cast<std::size_t>(size));
+        const auto idleMs = static_cast<std::uint64_t>(std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::steady_clock::now() - lastPacketTime_).count());
+        if (idleMs >= static_cast<std::uint64_t>(kStreamStallTimeout.count()) && !streamStalled_) {
+            streamStalled_ = true;
+            if (!stallRequestSent_) {
+                stallRequestSent_ = true;
+                if (!keyframeRequestPending_) {
+                    keyframeRequestPending_ = true;
+                    onKeyframeNeeded_();
+                }
+            }
+        }
+        if (onStats_) onStats_(received_.load(), lostPackets_.load(), reorderedPackets_.load(),
+                               dropped_.load(), streamStalled_, idleMs);
     }
     if (SUCCEEDED(comResult)) CoUninitialize();
 }
@@ -125,6 +165,9 @@ void RtpH264Receiver::ProcessDatagram(const std::uint8_t* data, std::size_t size
     }
 
     if (sequenceKnown_ && sequence != expectedSequence_) {
+        const auto distance = static_cast<std::uint16_t>(sequence - expectedSequence_);
+        if (distance < 0x8000) lostPackets_.fetch_add(distance);
+        else reorderedPackets_.fetch_add(1);
         DropCurrentAccessUnit(true);
         currentTimestamp_ = timestamp;
         timestampKnown_ = true;
@@ -202,7 +245,8 @@ void RtpH264Receiver::ProcessDatagram(const std::uint8_t* data, std::size_t size
             } else {
                 waitingForIdr_ = false;
                 keyframeRequestPending_ = false;
-                onAccessUnit_(H264AccessUnit{std::move(currentAccessUnit_), currentTimestamp_, currentHasIdr_});
+                onAccessUnit_(H264AccessUnit{std::move(currentAccessUnit_), currentTimestamp_, currentHasIdr_,
+                    ++nextAccessUnitSequence_, std::chrono::steady_clock::now()});
                 currentAccessUnit_.clear();
                 currentHasIdr_ = false;
                 currentHasSps_ = false;

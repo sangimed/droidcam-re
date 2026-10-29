@@ -1,0 +1,1065 @@
+{
+  "Device": "Samsung SM-G998B",
+  "Target": "Camera 0, 1920x1080, fixed 30 fps, codec-default High, DIM",
+  "Limitations": [
+    "Short probes; not a one-hour thermal acceptance run.",
+    "Raw CPU percentage varied with measured CPU frequency. The initial 56% estimate was not reproduced and is rejected.",
+    "Early cross-app samples used different physical cameras (clone 0, DroidCam 2) and different build types.",
+    "Debug simpleperf helper emitted child-command warnings while producing complete counters.",
+    "App process counters do not measure total camera/codec/GPU/radio/display power."
+  ],
+  "NormalizedSummary": {
+    "Debug": {
+      "CpuCorePercent": 54.634659947805396,
+      "MeanGHz": 0.7243432347917261,
+      "InstructionsPerSecond": 178311355.99148095,
+      "CyclesPerSecond": 395742463.18339324,
+      "InstructionsPerFrame": 5943711.8663826985,
+      "CyclesPerFrame": 13191415.43944644
+    },
+    "Benchmark": {
+      "CpuCorePercent": 44.92179501170799,
+      "MeanGHz": 0.7349325498823512,
+      "InstructionsPerSecond": 153885367.7657895,
+      "CyclesPerSecond": 330144893.53246844,
+      "InstructionsPerFrame": 5129512.25885965,
+      "CyclesPerFrame": 11004829.784415614
+    },
+    "InstructionReductionPercent": 13.69850399593081,
+    "CycleReductionPercent": 16.57582285288548,
+    "Streams": [
+      {
+        "Consumer": "SurfaceView[dev.droidcamclone.app/dev.droidcamclone.app.MainActivity]@0#1(BLAST Consumer)1",
+        "Width": 1920,
+        "Height": 1080,
+        "Fps": 0
+      },
+      {
+        "Consumer": "GraphicBufferSource",
+        "Width": 1920,
+        "Height": 1080,
+        "Fps": 29.999138138009197
+      }
+    ],
+    "TemperatureBefore": [
+      {
+        "Name": "AP",
+        "Celsius": 49.2,
+        "Status": 0
+      },
+      {
+        "Name": "BAT",
+        "Celsius": 37.2,
+        "Status": 0
+      },
+      {
+        "Name": "SKIN",
+        "Celsius": 40.6,
+        "Status": 2
+      }
+    ],
+    "TemperatureAfter": [
+      {
+        "Name": "AP",
+        "Celsius": 47.6,
+        "Status": 0
+      },
+      {
+        "Name": "BAT",
+        "Celsius": 37.2,
+        "Status": 0
+      },
+      {
+        "Name": "SKIN",
+        "Celsius": 40.3,
+        "Status": 2
+      }
+    ]
+  },
+  "BenchmarkCounterRun": {
+    "Time": "2026-10-25T03:36:51.1989326+01:00",
+    "Package": "dev.droidcamclone.app",
+    "ProcessId": "2004",
+    "Debuggable": false,
+    "CameraId": "0",
+    "Counters": [
+      {
+        "DurationSeconds": 10.010854,
+        "TaskClockMs": 4525.023726,
+        "CpuCorePercent": 45.20117590367416,
+        "CpuCycles": 3358886088.0,
+        "Instructions": 1554902573.0,
+        "AverageClockGHz": 0.7422913759988538,
+        "InstructionsPerSecond": 155321671.15812498,
+        "RawReport": "Performance counter statistics:\r\n\r\n#           count  event_name     # count / runtime\r\n  4525.023726(ms)  task-clock     # 0.452012 cpus used\r\n    3,358,886,088  cpu-cycles     # 0.731668 GHz      \r\n    1,554,902,573  instructions   # 338.899 M/sec     \r\n\r\nTotal test time: 10.010854 seconds.",
+        "ProfilerMessages": []
+      },
+      {
+        "DurationSeconds": 10.008683,
+        "TaskClockMs": 4523.638179,
+        "CpuCorePercent": 45.19713711584232,
+        "CpuCycles": 3363430610.0,
+        "Instructions": 1574084808.0,
+        "AverageClockGHz": 0.7435233493284211,
+        "InstructionsPerSecond": 157271921.59048298,
+        "RawReport": "Performance counter statistics:\r\n\r\n#           count  event_name     # count / runtime\r\n  4523.638179(ms)  task-clock     # 0.451971 cpus used\r\n    3,363,430,610  cpu-cycles     # 0.732603 GHz      \r\n    1,574,084,808  instructions   # 342.675 M/sec     \r\n\r\nTotal test time: 10.008683 seconds.",
+        "ProfilerMessages": []
+      },
+      {
+        "DurationSeconds": 10.008256,
+        "TaskClockMs": 4440.361713,
+        "CpuCorePercent": 44.3669877449178,
+        "CpuCycles": 3191205825.0,
+        "Instructions": 1491850588.0,
+        "AverageClockGHz": 0.7186815019274535,
+        "InstructionsPerSecond": 149061993.2183989,
+        "RawReport": "Performance counter statistics:\r\n\r\n#           count  event_name     # count / runtime\r\n  4440.361713(ms)  task-clock     # 0.443670 cpus used\r\n    3,191,205,825  cpu-cycles     # 0.706765 GHz      \r\n    1,491,850,588  instructions   # 330.370 M/sec     \r\n\r\nTotal test time: 10.008256 seconds.",
+        "ProfilerMessages": []
+      }
+    ],
+    "Streams": [
+      {
+        "Consumer": "SurfaceView[dev.droidcamclone.app/dev.droidcamclone.app.MainActivity]@0#1(BLAST Consumer)1",
+        "Width": 1920,
+        "Height": 1080,
+        "Fps": 0
+      },
+      {
+        "Consumer": "GraphicBufferSource",
+        "Width": 1920,
+        "Height": 1080,
+        "Fps": 29.999138138009197
+      }
+    ],
+    "TemperatureBefore": [
+      {
+        "Name": "AP",
+        "Celsius": 49.2,
+        "Status": 0
+      },
+      {
+        "Name": "BAT",
+        "Celsius": 37.2,
+        "Status": 0
+      },
+      {
+        "Name": "SKIN",
+        "Celsius": 40.6,
+        "Status": 2
+      }
+    ],
+    "TemperatureAfter": [
+      {
+        "Name": "AP",
+        "Celsius": 47.6,
+        "Status": 0
+      },
+      {
+        "Name": "BAT",
+        "Celsius": 37.2,
+        "Status": 0
+      },
+      {
+        "Name": "SKIN",
+        "Celsius": 40.3,
+        "Status": 2
+      }
+    ]
+  },
+  "DebugCounterReports": [
+    "Performance counter statistics:\n\n#           count  event_name     # count / runtime\n  5533.090364(ms)  task-clock     # 0.552712 cpus used\n    3,988,722,482  cpu-cycles     # 0.713156 GHz      \n    1,823,827,731  instructions   # 326.204 M/sec     \n\nTotal test time: 10.010802 seconds.\n",
+    "Performance counter statistics:\n\n#           count  event_name     # count / runtime\n  5444.238542(ms)  task-clock     # 0.543832 cpus used\n    3,912,604,700  cpu-cycles     # 0.709934 GHz      \n    1,781,242,363  instructions   # 323.447 M/sec     \n\nTotal test time: 10.010880 seconds.\n",
+    "Performance counter statistics:\n\n#           count  event_name     # count / runtime\n  5430.050077(ms)  task-clock     # 0.542495 cpus used\n    3,983,246,785  cpu-cycles     # 0.724645 GHz      \n    1,749,812,681  instructions   # 318.388 M/sec     \n\nTotal test time: 10.009399 seconds.\n"
+  ],
+  "EarlierAppCpuRuns": [
+    {
+      "Label": "high-a1",
+      "Time": "2026-10-25T02:55:50.8876796+01:00",
+      "Pid": "29296",
+      "CpuCorePercent": [
+        32.11,
+        32.03,
+        31.58
+      ],
+      "MeanCpu": 31.906666666666666,
+      "StreamBefore": {
+        "Active": "(Camera ID: 0, Cost: 51, PID: 29296, Score: 0, State: 2User Id: 0, Client Package Name: dev.droidcamclone.app, Conflicting Client Devices: {2, 20, 21, 23, 4, 56, 58, })",
+        "Targets": [
+          "Stream 1 Surface 0",
+          "Stream 0 Surface 0"
+        ],
+        "Streams": [
+          {
+            "Frames": 163,
+            "TimestampNs": 733600717474908
+          },
+          {
+            "Frames": 328,
+            "TimestampNs": 733610633810247
+          }
+        ]
+      },
+      "StreamAfter": {
+        "Active": "(Camera ID: 0, Cost: 51, PID: 29296, Score: 0, State: 2User Id: 0, Client Package Name: dev.droidcamclone.app, Conflicting Client Devices: {2, 20, 21, 23, 4, 56, 58, })",
+        "Targets": [
+          "Stream 1 Surface 0",
+          "Stream 0 Surface 0"
+        ],
+        "Streams": [
+          {
+            "Frames": 163,
+            "TimestampNs": 733600717474908
+          },
+          {
+            "Frames": 863,
+            "TimestampNs": 733642786755763
+          }
+        ]
+      },
+      "StreamRates": [
+        0,
+        16.64
+      ],
+      "TemperatureBefore": [
+        {
+          "Name": "AP",
+          "Celsius": 44.4,
+          "Status": 0
+        },
+        {
+          "Name": "BAT",
+          "Celsius": 35.2,
+          "Status": 0
+        },
+        {
+          "Name": "SKIN",
+          "Celsius": 38.3,
+          "Status": 1
+        }
+      ],
+      "TemperatureAfter": [
+        {
+          "Name": "AP",
+          "Celsius": 43.6,
+          "Status": 0
+        },
+        {
+          "Name": "BAT",
+          "Celsius": 35.2,
+          "Status": 0
+        },
+        {
+          "Name": "SKIN",
+          "Celsius": 38.1,
+          "Status": 1
+        }
+      ]
+    },
+    {
+      "Label": "baseline-b1",
+      "Time": "2026-10-25T02:57:23.938896+01:00",
+      "Pid": "31156",
+      "CpuCorePercent": [
+        23.79,
+        31.19,
+        30.59
+      ],
+      "MeanCpu": 28.523333333333337,
+      "StreamBefore": {
+        "Active": "(Camera ID: 0, Cost: 51, PID: 31156, Score: 0, State: 2User Id: 0, Client Package Name: dev.droidcamclone.app, Conflicting Client Devices: {2, 20, 21, 23, 4, 56, 58, })",
+        "Targets": [
+          "Stream 0 Surface 0",
+          "Stream 1 Surface 0"
+        ],
+        "Streams": [
+          {
+            "Frames": 163,
+            "TimestampNs": 733693529331072
+          },
+          {
+            "Frames": 330,
+            "TimestampNs": 733703565849565
+          }
+        ]
+      },
+      "StreamAfter": {
+        "Active": "(Camera ID: 0, Cost: 51, PID: 31156, Score: 0, State: 2User Id: 0, Client Package Name: dev.droidcamclone.app, Conflicting Client Devices: {2, 20, 21, 23, 4, 56, 58, })",
+        "Targets": [
+          "Stream 0 Surface 0",
+          "Stream 1 Surface 0"
+        ],
+        "Streams": [
+          {
+            "Frames": 163,
+            "TimestampNs": 733693529331072
+          },
+          {
+            "Frames": 866,
+            "TimestampNs": 733735778907042
+          }
+        ]
+      },
+      "StreamRates": [
+        0,
+        16.64
+      ],
+      "TemperatureBefore": [
+        {
+          "Name": "AP",
+          "Celsius": 44.8,
+          "Status": 0
+        },
+        {
+          "Name": "BAT",
+          "Celsius": 35.4,
+          "Status": 0
+        },
+        {
+          "Name": "SKIN",
+          "Celsius": 38.4,
+          "Status": 1
+        }
+      ],
+      "TemperatureAfter": [
+        {
+          "Name": "AP",
+          "Celsius": 45.6,
+          "Status": 0
+        },
+        {
+          "Name": "BAT",
+          "Celsius": 35.6,
+          "Status": 0
+        },
+        {
+          "Name": "SKIN",
+          "Celsius": 38.8,
+          "Status": 1
+        }
+      ]
+    },
+    {
+      "Label": "high-a2",
+      "Time": "2026-10-25T02:59:02.2910089+01:00",
+      "Pid": "32710",
+      "CpuCorePercent": [
+        32.02,
+        30.8,
+        30.85
+      ],
+      "MeanCpu": 31.22333333333334,
+      "StreamBefore": {
+        "Active": "(Camera ID: 0, Cost: 51, PID: 32710, Score: 0, State: 2User Id: 0, Client Package Name: dev.droidcamclone.app, Conflicting Client Devices: {2, 20, 21, 23, 4, 56, 58, })",
+        "Targets": [
+          "Stream 0 Surface 0",
+          "Stream 1 Surface 0"
+        ],
+        "Streams": [
+          {
+            "Frames": 164,
+            "TimestampNs": 733790630101118
+          },
+          {
+            "Frames": 332,
+            "TimestampNs": 733800726754919
+          }
+        ]
+      },
+      "StreamAfter": {
+        "Active": "(Camera ID: 0, Cost: 51, PID: 32710, Score: 0, State: 2User Id: 0, Client Package Name: dev.droidcamclone.app, Conflicting Client Devices: {2, 20, 21, 23, 4, 56, 58, })",
+        "Targets": [
+          "Stream 0 Surface 0",
+          "Stream 1 Surface 0"
+        ],
+        "Streams": [
+          {
+            "Frames": 164,
+            "TimestampNs": 733790630101118
+          },
+          {
+            "Frames": 885,
+            "TimestampNs": 733833961467741
+          }
+        ]
+      },
+      "StreamRates": [
+        0,
+        16.64
+      ],
+      "TemperatureBefore": [
+        {
+          "Name": "AP",
+          "Celsius": 45.7,
+          "Status": 0
+        },
+        {
+          "Name": "BAT",
+          "Celsius": 35.8,
+          "Status": 0
+        },
+        {
+          "Name": "SKIN",
+          "Celsius": 39.0,
+          "Status": 1
+        }
+      ],
+      "TemperatureAfter": [
+        {
+          "Name": "AP",
+          "Celsius": 43.9,
+          "Status": 0
+        },
+        {
+          "Name": "BAT",
+          "Celsius": 35.6,
+          "Status": 0
+        },
+        {
+          "Name": "SKIN",
+          "Celsius": 38.5,
+          "Status": 1
+        }
+      ]
+    },
+    {
+      "Label": "baseline-b2",
+      "Time": "2026-10-25T03:00:22.9069506+01:00",
+      "Pid": "2249",
+      "CpuCorePercent": [
+        29.73,
+        30.24,
+        31.31
+      ],
+      "MeanCpu": 30.426666666666666,
+      "StreamBefore": {
+        "Active": "(Camera ID: 0, Cost: 51, PID: 2249, Score: 0, State: 2User Id: 0, Client Package Name: dev.droidcamclone.app, Conflicting Client Devices: {2, 20, 21, 23, 4, 56, 58, })",
+        "Targets": [
+          "Stream 1 Surface 0",
+          "Stream 0 Surface 0"
+        ],
+        "Streams": [
+          {
+            "Frames": 164,
+            "TimestampNs": 733873770375867
+          },
+          {
+            "Frames": 330,
+            "TimestampNs": 733883746795975
+          }
+        ]
+      },
+      "StreamAfter": {
+        "Active": "(Camera ID: 0, Cost: 51, PID: 2249, Score: 0, State: 2User Id: 0, Client Package Name: dev.droidcamclone.app, Conflicting Client Devices: {2, 20, 21, 23, 4, 56, 58, })",
+        "Targets": [
+          "Stream 1 Surface 0",
+          "Stream 0 Surface 0"
+        ],
+        "Streams": [
+          {
+            "Frames": 164,
+            "TimestampNs": 733873770375867
+          },
+          {
+            "Frames": 850,
+            "TimestampNs": 733914998282068
+          }
+        ]
+      },
+      "StreamRates": [
+        0,
+        16.64
+      ],
+      "TemperatureBefore": [
+        {
+          "Name": "AP",
+          "Celsius": 44.9,
+          "Status": 0
+        },
+        {
+          "Name": "BAT",
+          "Celsius": 35.7,
+          "Status": 0
+        },
+        {
+          "Name": "SKIN",
+          "Celsius": 38.8,
+          "Status": 1
+        }
+      ],
+      "TemperatureAfter": [
+        {
+          "Name": "AP",
+          "Celsius": 43.9,
+          "Status": 0
+        },
+        {
+          "Name": "BAT",
+          "Celsius": 35.7,
+          "Status": 0
+        },
+        {
+          "Name": "SKIN",
+          "Celsius": 38.5,
+          "Status": 1
+        }
+      ]
+    },
+    {
+      "Label": "single-c1",
+      "Time": "2026-10-25T03:04:34.6542227+01:00",
+      "Pid": "6412",
+      "CpuCorePercent": [
+        29.15,
+        23.92,
+        17.5
+      ],
+      "MeanCpu": 23.52333333333333,
+      "StreamBefore": {
+        "Active": "(Camera ID: 0, Cost: 51, PID: 6412, Score: 0, State: 2User Id: 0, Client Package Name: dev.droidcamclone.app, Conflicting Client Devices: {2, 20, 21, 23, 4, 56, 58, })",
+        "Targets": [
+          "Stream 1 Surface 0"
+        ],
+        "Streams": [
+          {
+            "Frames": 316,
+            "TimestampNs": 734135225482026
+          }
+        ]
+      },
+      "StreamAfter": {
+        "Active": "(Camera ID: 0, Cost: 51, PID: 6412, Score: 0, State: 2User Id: 0, Client Package Name: dev.droidcamclone.app, Conflicting Client Devices: {2, 20, 21, 23, 4, 56, 58, })",
+        "Targets": [
+          "Stream 1 Surface 0"
+        ],
+        "Streams": [
+          {
+            "Frames": 836,
+            "TimestampNs": 734166476991119
+          }
+        ]
+      },
+      "StreamRates": 16.64,
+      "TemperatureBefore": [
+        {
+          "Name": "AP",
+          "Celsius": 44.0,
+          "Status": 0
+        },
+        {
+          "Name": "BAT",
+          "Celsius": 35.2,
+          "Status": 0
+        },
+        {
+          "Name": "SKIN",
+          "Celsius": 38.3,
+          "Status": 1
+        }
+      ],
+      "TemperatureAfter": [
+        {
+          "Name": "AP",
+          "Celsius": 45.8,
+          "Status": 0
+        },
+        {
+          "Name": "BAT",
+          "Celsius": 35.3,
+          "Status": 0
+        },
+        {
+          "Name": "SKIN",
+          "Celsius": 38.6,
+          "Status": 1
+        }
+      ]
+    },
+    {
+      "Label": "1080-high-a1",
+      "Time": "2026-10-25T03:12:00.8923934+01:00",
+      "Pid": "15953",
+      "CpuCorePercent": [
+        57.47,
+        46.43,
+        37.53
+      ],
+      "MeanCpu": 47.14333333333334,
+      "StreamBefore": {
+        "Active": "(Camera ID: 0, Cost: 51, PID: 15953, Score: 0, State: 2User Id: 0, Client Package Name: dev.droidcamclone.app, Conflicting Client Devices: {2, 20, 21, 23, 4, 56, 58, })",
+        "Targets": [
+          "Stream 1 Surface 0",
+          "Stream 0 Surface 0"
+        ],
+        "Streams": [
+          {
+            "Frames": 286,
+            "TimestampNs": 734571193315137
+          },
+          {
+            "Frames": 592,
+            "TimestampNs": 734581393615937
+          }
+        ]
+      },
+      "StreamAfter": {
+        "Active": "(Camera ID: 0, Cost: 51, PID: 15953, Score: 0, State: 2User Id: 0, Client Package Name: dev.droidcamclone.app, Conflicting Client Devices: {2, 20, 21, 23, 4, 56, 58, })",
+        "Targets": [
+          "Stream 1 Surface 0",
+          "Stream 0 Surface 0"
+        ],
+        "Streams": [
+          {
+            "Frames": 286,
+            "TimestampNs": 734571193315137
+          },
+          {
+            "Frames": 1540,
+            "TimestampNs": 734612994527876
+          }
+        ]
+      },
+      "StreamRates": [
+        0,
+        30.0
+      ],
+      "TemperatureBefore": [
+        {
+          "Name": "AP",
+          "Celsius": 44.1,
+          "Status": 0
+        },
+        {
+          "Name": "BAT",
+          "Celsius": 34.6,
+          "Status": 0
+        },
+        {
+          "Name": "SKIN",
+          "Celsius": 37.4,
+          "Status": 0
+        }
+      ],
+      "TemperatureAfter": [
+        {
+          "Name": "AP",
+          "Celsius": 47.5,
+          "Status": 0
+        },
+        {
+          "Name": "BAT",
+          "Celsius": 34.7,
+          "Status": 0
+        },
+        {
+          "Name": "SKIN",
+          "Celsius": 38.1,
+          "Status": 1
+        }
+      ]
+    },
+    {
+      "Label": "1080-baseline-b1",
+      "Time": "2026-10-25T03:13:22.5409744+01:00",
+      "Pid": "17437",
+      "CpuCorePercent": [
+        41.32,
+        56.47,
+        56.98
+      ],
+      "MeanCpu": 51.589999999999996,
+      "StreamBefore": {
+        "Active": "(Camera ID: 0, Cost: 51, PID: 17437, Score: 0, State: 2User Id: 0, Client Package Name: dev.droidcamclone.app, Conflicting Client Devices: {2, 20, 21, 23, 4, 56, 58, })",
+        "Targets": [
+          "Stream 0 Surface 0",
+          "Stream 1 Surface 0"
+        ],
+        "Streams": [
+          {
+            "Frames": 289,
+            "TimestampNs": 734652314385964
+          },
+          {
+            "Frames": 591,
+            "TimestampNs": 734662381345841
+          }
+        ]
+      },
+      "StreamAfter": {
+        "Active": "(Camera ID: 0, Cost: 51, PID: 17437, Score: 0, State: 2User Id: 0, Client Package Name: dev.droidcamclone.app, Conflicting Client Devices: {2, 20, 21, 23, 4, 56, 58, })",
+        "Targets": [
+          "Stream 0 Surface 0",
+          "Stream 1 Surface 0"
+        ],
+        "Streams": [
+          {
+            "Frames": 289,
+            "TimestampNs": 734652314385964
+          },
+          {
+            "Frames": 1556,
+            "TimestampNs": 734694548937780
+          }
+        ]
+      },
+      "StreamRates": [
+        0,
+        30.0
+      ],
+      "TemperatureBefore": [
+        {
+          "Name": "AP",
+          "Celsius": 46.6,
+          "Status": 0
+        },
+        {
+          "Name": "BAT",
+          "Celsius": 35.3,
+          "Status": 0
+        },
+        {
+          "Name": "SKIN",
+          "Celsius": 38.6,
+          "Status": 1
+        }
+      ],
+      "TemperatureAfter": [
+        {
+          "Name": "AP",
+          "Celsius": 46.0,
+          "Status": 0
+        },
+        {
+          "Name": "BAT",
+          "Celsius": 35.5,
+          "Status": 0
+        },
+        {
+          "Name": "SKIN",
+          "Celsius": 38.7,
+          "Status": 1
+        }
+      ]
+    },
+    {
+      "Label": "1080-high-benchmark-r1",
+      "Time": "2026-10-25T03:21:12.0138948+01:00",
+      "Pid": "21560",
+      "CpuCorePercent": [
+        18.44,
+        21.85,
+        21.34
+      ],
+      "MeanCpu": 20.543333333333337,
+      "StreamBefore": {
+        "Active": "(Camera ID: 0, Cost: 51, PID: 21560, Score: 0, State: 2User Id: 0, Client Package Name: dev.droidcamclone.app, Conflicting Client Devices: {2, 20, 21, 23, 4, 56, 58, })",
+        "Targets": [
+          "Stream 0 Surface 0",
+          "Stream 1 Surface 0"
+        ],
+        "Streams": [
+          {
+            "Frames": 291,
+            "TimestampNs": 735122948681396
+          },
+          {
+            "Frames": 591,
+            "TimestampNs": 735132948968812
+          }
+        ]
+      },
+      "StreamAfter": {
+        "Active": "(Camera ID: 0, Cost: 51, PID: 21560, Score: 0, State: 2User Id: 0, Client Package Name: dev.droidcamclone.app, Conflicting Client Devices: {2, 20, 21, 23, 4, 56, 58, })",
+        "Targets": [
+          "Stream 0 Surface 0",
+          "Stream 1 Surface 0"
+        ],
+        "Streams": [
+          {
+            "Frames": 291,
+            "TimestampNs": 735122948681396
+          },
+          {
+            "Frames": 1528,
+            "TimestampNs": 735164183217290
+          }
+        ]
+      },
+      "StreamRates": [
+        0,
+        30.0
+      ],
+      "TemperatureBefore": [
+        {
+          "Name": "AP",
+          "Celsius": 49.1,
+          "Status": 0
+        },
+        {
+          "Name": "BAT",
+          "Celsius": 34.1,
+          "Status": 0
+        },
+        {
+          "Name": "SKIN",
+          "Celsius": 37.7,
+          "Status": 0
+        }
+      ],
+      "TemperatureAfter": [
+        {
+          "Name": "AP",
+          "Celsius": 52.0,
+          "Status": 0
+        },
+        {
+          "Name": "BAT",
+          "Celsius": 35.2,
+          "Status": 0
+        },
+        {
+          "Name": "SKIN",
+          "Celsius": 39.5,
+          "Status": 1
+        }
+      ]
+    },
+    {
+      "Label": "1080-high-benchmark-r2",
+      "Time": "2026-10-25T03:25:21.8540552+01:00",
+      "Pid": "24542",
+      "CpuCorePercent": [
+        41.86,
+        45.72,
+        43.67
+      ],
+      "MeanCpu": 43.75,
+      "StreamBefore": {
+        "Active": "(Camera ID: 0, Cost: 51, PID: 24542, Score: 0, State: 2User Id: 0, Client Package Name: dev.droidcamclone.app, Conflicting Client Devices: {2, 20, 21, 23, 4, 56, 58, })",
+        "Targets": [
+          "Stream 0 Surface 0",
+          "Stream 1 Surface 0"
+        ],
+        "Streams": [
+          {
+            "Frames": 287,
+            "TimestampNs": 735370635539565
+          },
+          {
+            "Frames": 601,
+            "TimestampNs": 735381102501558
+          }
+        ]
+      },
+      "StreamAfter": {
+        "Active": "(Camera ID: 0, Cost: 51, PID: 24542, Score: 0, State: 2User Id: 0, Client Package Name: dev.droidcamclone.app, Conflicting Client Devices: {2, 20, 21, 23, 4, 56, 58, })",
+        "Targets": [
+          "Stream 0 Surface 0",
+          "Stream 1 Surface 0"
+        ],
+        "Streams": [
+          {
+            "Frames": 287,
+            "TimestampNs": 735370635539565
+          },
+          {
+            "Frames": 1581,
+            "TimestampNs": 735413770121304
+          }
+        ]
+      },
+      "StreamRates": [
+        0,
+        30.0
+      ],
+      "TemperatureBefore": [
+        {
+          "Name": "AP",
+          "Celsius": 49.7,
+          "Status": 0
+        },
+        {
+          "Name": "BAT",
+          "Celsius": 35.9,
+          "Status": 0
+        },
+        {
+          "Name": "SKIN",
+          "Celsius": 39.5,
+          "Status": 1
+        }
+      ],
+      "TemperatureAfter": [
+        {
+          "Name": "AP",
+          "Celsius": 46.8,
+          "Status": 0
+        },
+        {
+          "Name": "BAT",
+          "Celsius": 36.2,
+          "Status": 0
+        },
+        {
+          "Name": "SKIN",
+          "Celsius": 39.5,
+          "Status": 1
+        }
+      ]
+    }
+  ],
+  "ServiceCpuRuns": [
+    {
+      "Label": "dual-system-a1",
+      "ProcessIds": [
+        "2249",
+        "1396",
+        "1405",
+        "1635"
+      ],
+      "Samples": [
+        {
+          "2249": 27.78,
+          "1396": 7.34,
+          "1405": 29.05,
+          "1635": 7.43
+        },
+        {
+          "2249": 28.41,
+          "1396": 7.77,
+          "1405": 29.79,
+          "1635": 7.57
+        },
+        {
+          "2249": 27.57,
+          "1396": 7.29,
+          "1405": 28.66,
+          "1635": 7.39
+        }
+      ],
+      "Camera": [
+        "(Camera ID: 0, Cost: 51, PID: 2249, Score: 0, State: 2User Id: 0, Client Package Name: dev.droidcamclone.app, Conflicting Client Devices: {2, 20, 21, 23, 4, 56, 58, })",
+        "Consumer name: SurfaceView[dev.droidcamclone.app/dev.droidcamclone.app.MainActivity]@0#1(BLAST Consumer)1",
+        "Frames produced: 164, last timestamp: 733873770375867 ns",
+        "Consumer name: GraphicBufferSource",
+        "Frames produced: 3540, last timestamp: 734076664518337 ns"
+      ],
+      "Temperatures": [
+        "Thermal Status: 1",
+        "Temperature{mValue=42.9, mType=0, mName=AP, mStatus=0}",
+        "Temperature{mValue=35.1, mType=2, mName=BAT, mStatus=0}",
+        "Temperature{mValue=37.9, mType=3, mName=SKIN, mStatus=1}"
+      ],
+      "Time": "2026-10-25T03:03:04.6808239+01:00"
+    },
+    {
+      "Label": "single-system-c1",
+      "ProcessIds": [
+        "6412",
+        "1396",
+        "1405",
+        "1635"
+      ],
+      "Samples": [
+        {
+          "6412": 26.82,
+          "1396": 6.98,
+          "1405": 28.0,
+          "1635": 7.07
+        },
+        {
+          "6412": 27.32,
+          "1396": 7.25,
+          "1405": 28.4,
+          "1635": 7.44
+        },
+        {
+          "6412": 28.26,
+          "1396": 7.54,
+          "1405": 29.35,
+          "1635": 7.54
+        }
+      ],
+      "Camera": [
+        "(Camera ID: 0, Cost: 51, PID: 6412, Score: 0, State: 2User Id: 0, Client Package Name: dev.droidcamclone.app, Conflicting Client Devices: {2, 20, 21, 23, 4, 56, 58, })",
+        "Consumer name: GraphicBufferSource",
+        "Frames produced: 1991, last timestamp: 734235891267838 ns"
+      ],
+      "Temperatures": [
+        "Thermal Status: 1",
+        "Temperature{mValue=43.7, mType=0, mName=AP, mStatus=0}",
+        "Temperature{mValue=35.5, mType=2, mName=BAT, mStatus=0}",
+        "Temperature{mValue=38.4, mType=3, mName=SKIN, mStatus=1}"
+      ],
+      "Time": "2026-10-25T03:05:43.845339+01:00"
+    },
+    {
+      "Label": "official-camera0-system",
+      "ProcessIds": [
+        "2751",
+        "1396",
+        "1405",
+        "1635"
+      ],
+      "Samples": [
+        {
+          "2751": 20.52,
+          "1396": 6.41,
+          "1405": 27.72,
+          "1635": 8.09
+        },
+        {
+          "2751": 19.13,
+          "1396": 6.15,
+          "1405": 25.17,
+          "1635": 7.63
+        },
+        {
+          "2751": 19.31,
+          "1396": 5.91,
+          "1405": 25.31,
+          "1635": 7.49
+        }
+      ],
+      "Camera": [
+        "(Camera ID: 0, Cost: 51, PID: 2751, Score: 0, State: 2User Id: 0, Client Package Name: com.dev47apps.obsdroidcam, Conflicting Client Devices: {2, 20, 21, 23, 4, 56, 58, })",
+        "Consumer name: SurfaceTexture-1-2751-30",
+        "Frames produced: 806, last timestamp: 734343350572992 ns"
+      ],
+      "Temperatures": [
+        "Thermal Status: 1",
+        "Temperature{mValue=44.8, mType=0, mName=AP, mStatus=0}",
+        "Temperature{mValue=35.6, mType=2, mName=BAT, mStatus=0}",
+        "Temperature{mValue=38.6, mType=3, mName=SKIN, mStatus=1}"
+      ],
+      "Time": "2026-10-25T03:07:31.3013571+01:00"
+    }
+  ],
+  "ApkSha256": [
+    {
+      "Name": "1080-high.apk",
+      "Sha256": "66FF62CC73EC0A638F8C6E96E564A00BADAA3C13722DE6D79A2D74AF7926BDB9"
+    },
+    {
+      "Name": "1080-baseline.apk",
+      "Sha256": "CA0EB6A3594936F692A99E6A0E653A7F02F922DB3AB9C6FC7649ED4C2B06F193"
+    },
+    {
+      "Name": "1080-high-benchmark.apk",
+      "Sha256": "868F53F191BF8182598102D7E5784A8DDAF1284199C985FB32C36731B33ADBF7"
+    },
+    {
+      "Name": "1080-high-benchmark-final.apk",
+      "Sha256": "5A42C30AD264466508B93A40A7D9D2863A5FF24FD9A3E1B314E1053E20976912"
+    }
+  ],
+  "PerfRecordingSha256": [
+    {
+      "Name": "clone-thermal-perf.data",
+      "Sha256": "6AA8EDB354A1E4CB8FB68768CEDC22DB8C9A19407965044900ECD24810586C3B"
+    },
+    {
+      "Name": "clone-benchmark-perf.data",
+      "Sha256": "0F1F38827BA36431C86D44F751655F13FA8E656104B593E007CF5CD99EC7FA9F"
+    }
+  ]
+}

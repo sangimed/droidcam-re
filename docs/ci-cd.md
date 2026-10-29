@@ -1,6 +1,6 @@
 # CI/CD and release guide
 
-The workflow at `.github/workflows/ci.yml` compiles both platforms on pull requests to `main` and pushes to `main`. Successful builds retain the Android APK and Windows x64 ZIP as downloadable Actions artifacts for 14 days. It has no signing secrets. No automated test suite is configured yet.
+The workflow at `.github/workflows/ci.yml` compiles both platforms on pull requests to `main` and pushes to `main`. Successful builds retain the Android debug/benchmark APKs and Windows x64 ZIP as downloadable Actions artifacts for 14 days. It has no signing secrets. No automated test suite is configured yet.
 
 The separate `.github/workflows/release.yml` runs only for pushed `v*` tags. It validates canonical SemVer, signs the Android APK, builds the Windows x64 ZIP, and publishes the release. Only its publishing job receives `contents: write` permission.
 
@@ -52,4 +52,4 @@ The Windows ZIP contains the executable, not an installer. Windows system librar
 
 ## CI artifacts
 
-Pull request/main builds use the debug APK and a Windows Release-mode executable archive. These are short-lived CI artifacts for review and manual installation; only version-tag runs publish release assets. The Android release build can also be assembled locally with Gradle properties `APP_VERSION_CODE` and `APP_VERSION_NAME`, plus `ANDROID_KEYSTORE_PATH`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, and `ANDROID_KEY_PASSWORD` environment variables.
+Pull request/main builds provide debug and benchmark APKs in the `android-apks` artifact, plus a Windows Release-mode executable archive. Use `droidcam-clone-android-benchmark.apk` for performance and sustained streaming checks: it inherits the release configuration, is non-debuggable and shell-profileable, and uses a debug certificate only for local testing. The debug APK is for debugging; its runtime overhead makes CPU/thermal comparisons unreliable. Only version-tag runs publish release assets. The Android release build can also be assembled locally with Gradle properties `APP_VERSION_CODE` and `APP_VERSION_NAME`, plus `ANDROID_KEYSTORE_PATH`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, and `ANDROID_KEY_PASSWORD` environment variables.

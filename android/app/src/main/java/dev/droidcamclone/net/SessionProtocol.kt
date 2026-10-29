@@ -12,9 +12,11 @@ data class VideoProfile(
     val fpsRangeMin: Int = fps,
     val fpsRangeMax: Int = fps,
     val encoderName: String? = null,
+    val encoderMode: String? = null,
+    val cameraId: String? = null,
 ) {
     init {
-        require(width == 1920 && height == 1080)
+        require((width to height) in setOf(1280 to 720, 1920 to 1080))
         require(fps == 30 || fps == 60)
         require(fpsRangeMin in 1..fps && fpsRangeMax == fps)
         require(bitrate > 0)

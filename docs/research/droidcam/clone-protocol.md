@@ -7,6 +7,7 @@ This protocol connects only this clone's Android sender and Windows receiver. It
 - TCP session/control: Windows listens on IPv4 port `48200`.
 - Video: Android sends RTP/H.264 datagrams over UDP to the UDP port returned by Windows in `ACCEPT`.
 - Windows binds an ephemeral UDP port per accepted session. The UDP payload must not exceed 1200 bytes, including the RTP header.
+- On Windows, permit the receiver executable for inbound traffic on a trusted Private profile and local subnet. The control port is fixed, but the video port is negotiated dynamically; a single fixed-port UDP exception is insufficient. Do not expose either channel to public networks or configure router port forwarding.
 - All control integers are unsigned big-endian. A TCP record is `u32 length` followed by `length` bytes. `length` must be from 2 through 4096 before any payload allocation.
 - A TCP record body begins with `u8 version` (`1`) and `u8 message_type`.
 
@@ -14,7 +15,7 @@ This protocol connects only this clone's Android sender and Windows receiver. It
 
 | Type | Direction | Body after common prefix | Purpose |
 |---|---|---|---|
-| `HELLO = 1` | Android → Windows | 16-byte session UUID, u16 width, u16 height, u8 fps, u8 codec (`1 = H.264`), u8 dynamic RTP payload type (`96`), u32 SSRC | Request a stream. Version 1 accepts only 1920×1080 at 30 or 60 fps. |
+| `HELLO = 1` | Android → Windows | 16-byte session UUID, u16 width, u16 height, u8 fps, u8 codec (`1 = H.264`), u8 dynamic RTP payload type (`96`), u32 SSRC | Request a stream. Version 1 accepts 1280×720 or 1920×1080 at 30 or 60 fps. |
 | `ACCEPT = 2` | Windows → Android | 16-byte session UUID, u16 Windows UDP port, u16 maximum RTP datagram payload (`1200`) | Accept the exact offered profile and provide the destination port. |
 | `REJECT = 3` | Windows → Android | u16 reason code | Reject unsupported profile/version/session. |
 | `KEYFRAME_REQUEST = 4` | Windows → Android | 16-byte session UUID | Request a new H.264 sync frame after packet loss or decoder recovery. |
@@ -45,3 +46,10 @@ sequenceDiagram
   W-->>A: KEYFRAME_REQUEST (TCP), if recovery is needed
   A->>W: CLOSE (TCP), when stopped
 ```
+
+## Runtime telemetry
+
+- Android assigns a local monotonic sequence number and timestamp to each encoded video access unit. Its status line reports the selected 720p/1080p profile, measured encoder output rate, UDP packet count, sender queue depth and oldest queued access-unit age, queue drops, and keyframe requests.
+- RTP sequence numbers and timestamps provide receiver-side packet ordering and access-unit identity. The Windows preview reports decoder mode, decoded frames per second, missing and reordered RTP packets, dropped access units, receive-to-decode duration, and age since the newest frame was submitted for presentation.
+- Android and Windows monotonic clocks are independent. The receiver reports only durations measured on the Windows clock; it does not subtract Android timestamps from Windows timestamps. Glass-to-glass latency still requires an external visible stimulus and recording.
+- These counters are source/build verified only. Device performance and end-to-end behavior require a real phone and Windows PC on a LAN.

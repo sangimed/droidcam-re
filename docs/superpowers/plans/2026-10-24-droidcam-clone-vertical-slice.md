@@ -75,7 +75,7 @@
 - [x] Create a Camera2 session with matching preview and encoder surfaces; report unsupported simultaneous surface/profile combinations to UI.
 - [x] Configure MediaCodec H.264 encoder for the selected FPS and bounded bitrate. Preserve codec config and PTS; use a bounded newest-frame UDP handoff.
 - [x] Implement RTP v2/H.264 single NAL and FU-A packetization, sequence/timestamp/marker behavior, and bounded UDP send queues.
-- [x] Add activity-only start/stop lifecycle; release camera, codec and sockets on stop, permission denial, and connection failure.
+- [x] Add activity-only start/stop lifecycle; release camera, codec and sockets on stop, permission denial, connection failure, or cancellation while connecting.
 - [x] Build the Android debug APK. Runtime profile and teardown observations remain unverified.
 
 ## Task 3: Windows session, RTP receiver and H.264 decode/preview
@@ -99,12 +99,39 @@
 
 **Files:** `android/app/src/main/java/dev/droidcamclone/telemetry/FrameStats.kt`, Android status UI, future Windows telemetry, `docs/research/droidcam/clone-protocol.md`, and the clone implementation status note.
 
-- [ ] Add sequence IDs and monotonic local timestamps at encoder output, packet send/receive, decode output and presentation submission. Keep phone and PC clocks separate unless synchronized.
-- [ ] Show selected 1080p profile, actual FPS, decoder mode, packet loss/reordering, dropped frames and queue age.
-- [ ] On incomplete access unit, discard it; request a keyframe over TCP and wait for a decodable recovery point.
-- [ ] Exercise manual-LAN session startup, both 1080p profiles where available, peer disconnect/reconnect, receiver stall and injected packet loss; record observations without adding automated tests.
-- [ ] Run a sustained capable-device 1080p60 session and a 1080p30 comparison; record latency percentiles, delivered FPS, CPU/GPU/codec mode, battery/current and temperature trend.
+- [x] Add sequence IDs and monotonic local timestamps at encoder output, packet send/receive, decode output and presentation submission. Keep phone and PC clocks separate unless synchronized.
+- [x] Show selected 1080p profile, actual FPS, decoder mode, packet loss/reordering, dropped frames and queue age.
+- [x] Show Windows receiver process CPU usage as a percentage of one logical core; measure GPU externally during E2E runs.
+- [x] Retain bounded one-second Android telemetry samples and allow exporting them as CSV without broad storage permission.
+- [x] On incomplete access unit, discard it; request a keyframe over TCP and wait for a decodable recovery point.
+- [ ] Exercise manual-LAN session startup, both 1080p profiles where available, peer disconnect/reconnect, receiver stall and injected packet loss; record observations without adding automated tests. No Android device is attached in this environment.
+- [ ] Run a sustained capable-device 1080p60 session and a 1080p30 comparison; record latency percentiles, delivered FPS, CPU/GPU/codec mode, battery/current and temperature trend. No Android device is attached in this environment.
+
+Grouped runtime validation is tracked in [GitHub issue #4](https://github.com/sangimed/droidcam-re/issues/4); keep its scenario checklist current as implementation continues.
+
+## Task 6: Instrument Android capture and device conditions
+
+**Files:** `CameraController.kt`, Android telemetry UI, `FrameStats.kt`, and the clone implementation status note.
+
+- [x] Record Camera2 sensor timestamps and camera frame numbers through capture results.
+- [x] Report camera cadence separately from encoder cadence; do not subtract timestamps from different clock sources.
+- [x] Report the age of the last Camera2 callback and reset camera FPS to zero after two seconds without callbacks.
+- [x] Report process CPU per core, battery temperature when available, and platform thermal status when available.
+- [x] List every reported surface-input H.264 encoder for each profile and honor the selected encoder without silent fallback.
+- [x] Build the Android debug APK.
+- [ ] During grouped E2E testing, collect capture/encoder cadence, CPU, battery-temperature, and thermal observations on representative phones.
 - [ ] Document any device profile that cannot provide 1080p60; keep resolution at 1080p and report unsupported rather than downscaling.
+
+## Task 5: Bound Windows decode backlog and recover at an IDR
+
+**Files:** `windows/src/video/freshness_queue.h`, `windows/src/main.cpp`, Windows implementation status.
+
+- [x] Move Media Foundation decode off the UDP receive thread to a dedicated worker.
+- [x] Bound pending access units to three. On overflow, clear stale pending frames, request an IDR, and discard non-IDR units until a recovery point is queued.
+- [x] Expose decode queue depth, oldest queued age, drop count, and IDR recovery state in the receiver overlay.
+- [x] Detect 750 ms of RTP silence, report packet age/stalled state, and request one keyframe until traffic resumes.
+- [x] Compile the Windows receiver.
+- [ ] During grouped runtime testing, induce decoder/network stalls and loss; verify memory remains bounded, keyframe recovery works, and preview age recovers.
 
 ## Out of scope
 

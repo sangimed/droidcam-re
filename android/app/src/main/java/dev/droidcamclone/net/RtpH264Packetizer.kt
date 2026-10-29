@@ -9,6 +9,9 @@ class RtpH264Packetizer(
     initialSequence: Int = 0,
 ) {
     private var sequence = initialSequence and 0xffff
+    private data class NalRange(val start: Int, val end: Int) {
+        val size: Int get() = end - start
+    }
 
     init {
         require(ssrc in 0..0xffff_ffffL)
@@ -21,26 +24,32 @@ class RtpH264Packetizer(
     @Synchronized
     fun packetize(accessUnit: ByteArray, ptsUs: Long): List<ByteArray> {
         if (accessUnit.isEmpty()) return emptyList()
-        val nalUnits = splitNalUnits(accessUnit)
+        val nalUnits = findNalRanges(accessUnit)
         require(nalUnits.isNotEmpty()) { "No H.264 NAL units found" }
         val timestamp = ((ptsUs * 90L) / 1000L).toInt()
         val packets = ArrayList<ByteArray>()
         nalUnits.forEachIndexed { nalIndex, nal ->
-            require(nal.isNotEmpty()) { "Empty H.264 NAL unit" }
+            require(nal.size > 0) { "Empty H.264 NAL unit" }
             val markerOnLastPacket = nalIndex == nalUnits.lastIndex
             if (nal.size + RTP_HEADER_BYTES <= maxDatagramBytes) {
-                packets += makePacket(nal, timestamp, markerOnLastPacket)
+                packets += makePacket(accessUnit, nal.start, nal.size, timestamp, markerOnLastPacket)
             } else {
-                packetizeFragmentedNal(nal, timestamp, markerOnLastPacket, packets)
+                packetizeFragmentedNal(accessUnit, nal, timestamp, markerOnLastPacket, packets)
             }
         }
         return packets
     }
 
-    private fun packetizeFragmentedNal(nal: ByteArray, timestamp: Int, marker: Boolean, output: MutableList<ByteArray>) {
+    private fun packetizeFragmentedNal(
+        accessUnit: ByteArray,
+        nal: NalRange,
+        timestamp: Int,
+        marker: Boolean,
+        output: MutableList<ByteArray>,
+    ) {
         require(nal.size > 1) { "NAL unit is too short to fragment" }
         val chunkSize = maxDatagramBytes - RTP_HEADER_BYTES - FU_HEADER_BYTES
-        val originalHeader = nal[0].toInt() and 0xff
+        val originalHeader = accessUnit[nal.start].toInt() and 0xff
         val fuIndicator = (originalHeader and 0xe0) or FU_A_TYPE
         val nalType = originalHeader and 0x1f
         var offset = 1
@@ -48,17 +57,23 @@ class RtpH264Packetizer(
             val size = minOf(chunkSize, nal.size - offset)
             val isStart = offset == 1
             val isEnd = offset + size == nal.size
-            val payload = ByteArray(FU_HEADER_BYTES + size)
-            payload[0] = fuIndicator.toByte()
-            payload[1] = ((if (isStart) 0x80 else 0) or (if (isEnd) 0x40 else 0) or nalType).toByte()
-            nal.copyInto(payload, FU_HEADER_BYTES, offset, offset + size)
-            output += makePacket(payload, timestamp, marker && isEnd)
+            val packet = newPacket(RTP_HEADER_BYTES + FU_HEADER_BYTES + size, timestamp, marker && isEnd)
+            packet[RTP_HEADER_BYTES] = fuIndicator.toByte()
+            packet[RTP_HEADER_BYTES + 1] = ((if (isStart) 0x80 else 0) or (if (isEnd) 0x40 else 0) or nalType).toByte()
+            accessUnit.copyInto(packet, RTP_HEADER_BYTES + FU_HEADER_BYTES, nal.start + offset, nal.start + offset + size)
+            output += packet
             offset += size
         }
     }
 
-    private fun makePacket(payload: ByteArray, timestamp: Int, marker: Boolean): ByteArray {
-        val packet = ByteArray(RTP_HEADER_BYTES + payload.size)
+    private fun makePacket(data: ByteArray, offset: Int, size: Int, timestamp: Int, marker: Boolean): ByteArray {
+        val packet = newPacket(RTP_HEADER_BYTES + size, timestamp, marker)
+        data.copyInto(packet, RTP_HEADER_BYTES, offset, offset + size)
+        return packet
+    }
+
+    private fun newPacket(size: Int, timestamp: Int, marker: Boolean): ByteArray {
+        val packet = ByteArray(size)
         packet[0] = 0x80.toByte() // RTP v2, no padding/extension/CSRC.
         packet[1] = ((if (marker) 0x80 else 0) or SessionProtocol.RTP_PAYLOAD_TYPE).toByte()
         packet[2] = (sequence ushr 8).toByte()
@@ -66,11 +81,10 @@ class RtpH264Packetizer(
         sequence = (sequence + 1) and 0xffff
         ByteBuffer.wrap(packet, 4, 4).order(ByteOrder.BIG_ENDIAN).putInt(timestamp)
         ByteBuffer.wrap(packet, 8, 4).order(ByteOrder.BIG_ENDIAN).putInt(ssrc.toInt())
-        payload.copyInto(packet, RTP_HEADER_BYTES)
         return packet
     }
 
-    private fun splitNalUnits(data: ByteArray): List<ByteArray> {
+    private fun findNalRanges(data: ByteArray): List<NalRange> {
         val starts = ArrayList<Pair<Int, Int>>()
         var index = 0
         while (index < data.size - 2) {
@@ -91,17 +105,17 @@ class RtpH264Packetizer(
             return starts.mapIndexedNotNull { position, (start, prefix) ->
                 val nalStart = start + prefix
                 val nalEnd = starts.getOrNull(position + 1)?.first ?: data.size
-                if (nalStart >= nalEnd) null else data.copyOfRange(nalStart, nalEnd)
+                if (nalStart >= nalEnd) null else NalRange(nalStart, nalEnd)
             }
         }
 
-        val lengthPrefixed = parseLengthPrefixed(data)
+        val lengthPrefixed = findLengthPrefixedNalRanges(data)
         if (lengthPrefixed != null) return lengthPrefixed
-        return listOf(data.copyOf())
+        return listOf(NalRange(0, data.size))
     }
 
-    private fun parseLengthPrefixed(data: ByteArray): List<ByteArray>? {
-        val result = ArrayList<ByteArray>()
+    private fun findLengthPrefixedNalRanges(data: ByteArray): List<NalRange>? {
+        val result = ArrayList<NalRange>()
         var offset = 0
         while (offset + 4 <= data.size) {
             val length = ((data[offset].toInt() and 0xff) shl 24) or
@@ -110,7 +124,7 @@ class RtpH264Packetizer(
                 (data[offset + 3].toInt() and 0xff)
             if (length <= 0 || length > data.size - offset - 4) return null
             val start = offset + 4
-            result += data.copyOfRange(start, start + length)
+            result += NalRange(start, start + length)
             offset = start + length
         }
         return result.takeIf { it.isNotEmpty() && offset == data.size }

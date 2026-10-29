@@ -1,0 +1,96 @@
+{
+  "Setup": {
+    "Serial": "d3ec6d70",
+    "MarketName": "POCO Pad",
+    "Model": "2405CPCFBG",
+    "Android": "16",
+    "Sdk": 36,
+    "TabletIp": "192.168.1.193",
+    "PcIp": "192.168.1.236",
+    "ReceiverPid": 40628,
+    "OriginalStayAwake": 3,
+    "GitBase": "f9df89480557a0492d26e23846f8ff4dbae5c907",
+    "ApkSha256": "58A1804BC1C2720CA87A44CC38BCECD95AB25537C86EA20DEA12015765E0317B",
+    "ReceiverSha256": "9F52FEEC23B7BE851FA248030259DBB129BCA70052747D0DB75D7F84D01FB8ED"
+  },
+  "Run": {
+    "StartedUtc": "2026-10-25T18:42:30.2523859Z",
+    "FinishedUtc": "2026-10-25T18:48:35.1988123Z",
+    "DurationSeconds": 364.9455296,
+    "RequestedMinutes": 60,
+    "Samples": 13,
+    "DeviceSerial": "d3ec6d70",
+    "Package": "dev.droidcamclone.app",
+    "TabletProcessId": "9356",
+    "ReceiverProcessId": 40628,
+    "Cancelled": true,
+    "Failure": null,
+    "Completed": false
+  },
+  "UserWaivedLongBatteryTest": true,
+  "UserAcceptedVisualLatency": true,
+  "NumericGlassToGlassLatencyMeasured": false,
+  "FinalCsvSamples": 688,
+  "FinalCsvDurationSeconds": 689.864,
+  "WindowEncoderSequenceStart": 7590,
+  "WindowEncoderSequenceEnd": 18478,
+  "WindowCameraFps": {
+    "Count": 360,
+    "Minimum": 29.758,
+    "Median": 30.262,
+    "P05": 30.262,
+    "P95": 30.262,
+    "Maximum": 30.262,
+    "Mean": 30.257800000000074
+  },
+  "WindowEncoderFps": {
+    "Count": 360,
+    "Minimum": 29.682,
+    "Median": 30.286,
+    "P05": 30.088,
+    "P95": 30.463,
+    "Maximum": 30.628,
+    "Mean": 30.278422222222233
+  },
+  "WindowQueueDepth": {
+    "Count": 360,
+    "Minimum": 0,
+    "Median": 0,
+    "P05": 0,
+    "P95": 0,
+    "Maximum": 1,
+    "Mean": 0.011111111111111112
+  },
+  "WindowBatteryStart": 25.0,
+  "WindowBatteryEnd": 26.0,
+  "WindowThermalStates": [
+    "none"
+  ],
+  "SenderQueueDropsAtStart": 0,
+  "SenderQueueDropsAtEnd": 0,
+  "KeyframeRequestsAtStart": 2,
+  "KeyframeRequestsAtEnd": 2,
+  "MonitorErrors": 0,
+  "ReceiverOverlayAtStart": [
+    "1 920x1080@30 1-1264 I decode 30.0 fps I CPU 96.8%/core",
+    "RTP live Oms I rx 270557 | loss O I reorder O I AU drops 2",
+    "AU 7633",
+    "ueue 0/0 ms drop 6 | live I decode OxOOOOOOOO age 23 ms I MFT 9 ms convert 14 ms"
+  ],
+  "ReceiverOverlayAtEnd": [
+    "11 920x1080@30 1-1264 I decode 30.0 fps",
+    "rocess CPU 90.3%/core",
+    "RTP live Oms I rx 654979 | loss O I reorder O I AU drops 2",
+    "AU 18506",
+    "ueue 0/0 ms drop 6 live decode OxOOOOOOOO age 27 ms I MFT 7 ms convert 17 ms"
+  ],
+  "CsvSha256": "F8502BD1E41E0C8AC82EB04BB244B1DDC2EE99B13E662A9278B56923D28D6326",
+  "InitialCsvSha256": "1882BBE638BF18908C5CC4C24DFA9D8C03E074FFB4574EDB7DFAE859FABC0A36",
+  "Notes": [
+    "Long run stopped at user request; not a one-hour pass.",
+    "No exposed skin sensor on this tablet; battery/CPU/GPU readings do not quantify surface comfort.",
+    "Some overlay FPS OCR readings are unavailable; raw overlay text/images retained in local artifacts.",
+    "Camera denial flow was not conclusively exercised; no denial-path pass claimed.",
+    "Fault injection used a temporary debug APK; thermal/performance figures use only non-debuggable benchmark APK."
+  ]
+}

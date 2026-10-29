@@ -45,3 +45,17 @@ target_include_directories(droidcam_clone_vcam_frame_tests PRIVATE src)
 target_link_libraries(droidcam_clone_vcam_frame_tests PRIVATE droidcam_clone_vcam_conversion)
 add_test(NAME virtual_camera_frame COMMAND droidcam_clone_vcam_frame_tests)
 
+add_library(droidcam_clone_vcam_bridge STATIC
+    src/virtual_camera/frame_bridge.cpp
+)
+target_compile_features(droidcam_clone_vcam_bridge PRIVATE cxx_std_20)
+target_include_directories(droidcam_clone_vcam_bridge PUBLIC src)
+target_link_libraries(droidcam_clone_vcam_bridge PUBLIC droidcam_clone_vcam_conversion PRIVATE advapi32 ole32)
+
+add_executable(droidcam_clone_vcam_bridge_tests tests/virtual_camera_bridge_test.cpp)
+target_compile_features(droidcam_clone_vcam_bridge_tests PRIVATE cxx_std_20)
+target_include_directories(droidcam_clone_vcam_bridge_tests PRIVATE src)
+target_link_libraries(droidcam_clone_vcam_bridge_tests PRIVATE droidcam_clone_vcam_bridge advapi32 ole32)
+add_test(NAME virtual_camera_bridge COMMAND droidcam_clone_vcam_bridge_tests)
+
+

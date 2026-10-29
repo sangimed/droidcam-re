@@ -58,4 +58,41 @@ target_include_directories(droidcam_clone_vcam_bridge_tests PRIVATE src)
 target_link_libraries(droidcam_clone_vcam_bridge_tests PRIVATE droidcam_clone_vcam_bridge advapi32 ole32)
 add_test(NAME virtual_camera_bridge COMMAND droidcam_clone_vcam_bridge_tests)
 
+add_library(droidcam_clone_vcam_source STATIC
+    src/virtual_camera/media_source.cpp
+    src/virtual_camera/media_stream.cpp
+    src/virtual_camera/registration.cpp
+)
+target_compile_features(droidcam_clone_vcam_source PRIVATE cxx_std_20)
+target_compile_definitions(droidcam_clone_vcam_source PRIVATE UNICODE _UNICODE WIN32_LEAN_AND_MEAN NOMINMAX)
+target_include_directories(droidcam_clone_vcam_source PUBLIC src)
+target_link_libraries(droidcam_clone_vcam_source PUBLIC droidcam_clone_vcam_bridge droidcam_clone_vcam_conversion PRIVATE mfplat mfuuid ole32 mfsensorgroup advapi32 shlwapi)
+
+add_library(droidcam_clone_virtual_camera SHARED
+    src/virtual_camera/dllmain.cpp
+    src/virtual_camera/media_source.cpp
+    src/virtual_camera/media_stream.cpp
+    src/virtual_camera/registration.cpp
+    src/virtual_camera/virtual_camera.def
+)
+target_compile_features(droidcam_clone_virtual_camera PRIVATE cxx_std_20)
+target_compile_definitions(droidcam_clone_virtual_camera PRIVATE UNICODE _UNICODE WIN32_LEAN_AND_MEAN NOMINMAX)
+target_include_directories(droidcam_clone_virtual_camera PRIVATE src)
+target_link_libraries(droidcam_clone_virtual_camera PRIVATE droidcam_clone_vcam_bridge droidcam_clone_vcam_conversion mfplat mfuuid ole32 mfsensorgroup advapi32 shlwapi)
+
+add_executable(droidcam_clone_vcam_probe tools/virtual_camera_probe.cpp)
+target_compile_features(droidcam_clone_vcam_probe PRIVATE cxx_std_20)
+target_compile_definitions(droidcam_clone_vcam_probe PRIVATE UNICODE _UNICODE WIN32_LEAN_AND_MEAN NOMINMAX)
+target_include_directories(droidcam_clone_vcam_probe PRIVATE src)
+target_link_libraries(droidcam_clone_vcam_probe PRIVATE droidcam_clone_vcam_source mfplat mfuuid ole32 mfsensorgroup advapi32 shlwapi)
+
+add_executable(droidcam_clone_vcam_source_tests tests/virtual_camera_source_test.cpp)
+target_compile_features(droidcam_clone_vcam_source_tests PRIVATE cxx_std_20)
+target_compile_definitions(droidcam_clone_vcam_source_tests PRIVATE UNICODE _UNICODE WIN32_LEAN_AND_MEAN NOMINMAX)
+target_include_directories(droidcam_clone_vcam_source_tests PRIVATE src)
+target_link_libraries(droidcam_clone_vcam_source_tests PRIVATE droidcam_clone_vcam_source mfplat mfuuid ole32 mfsensorgroup advapi32 shlwapi)
+add_test(NAME virtual_camera_source COMMAND droidcam_clone_vcam_source_tests)
+
+
+
 

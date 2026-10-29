@@ -32,3 +32,16 @@ target_compile_definitions(droidcam_clone_rtp_tests PRIVATE WIN32_LEAN_AND_MEAN 
 target_include_directories(droidcam_clone_rtp_tests PRIVATE src)
 target_link_libraries(droidcam_clone_rtp_tests PRIVATE ws2_32 ole32)
 add_test(NAME rtp_h264_receiver COMMAND droidcam_clone_rtp_tests)
+
+add_library(droidcam_clone_vcam_conversion STATIC
+    src/virtual_camera/frame_conversion.cpp
+)
+target_compile_features(droidcam_clone_vcam_conversion PRIVATE cxx_std_20)
+target_include_directories(droidcam_clone_vcam_conversion PUBLIC src)
+
+add_executable(droidcam_clone_vcam_frame_tests tests/virtual_camera_frame_test.cpp)
+target_compile_features(droidcam_clone_vcam_frame_tests PRIVATE cxx_std_20)
+target_include_directories(droidcam_clone_vcam_frame_tests PRIVATE src)
+target_link_libraries(droidcam_clone_vcam_frame_tests PRIVATE droidcam_clone_vcam_conversion)
+add_test(NAME virtual_camera_frame COMMAND droidcam_clone_vcam_frame_tests)
+

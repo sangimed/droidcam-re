@@ -13,6 +13,8 @@
 #include "net/session_server.h"
 #include "video/h264_decoder.h"
 #include "video/freshness_queue.h"
+#include "virtual_camera/receiver_output.h"
+#include "virtual_camera/registration.h"
 
 namespace {
 constexpr wchar_t kWindowClass[] = L"DroidCamCloneWindow";
@@ -26,10 +28,13 @@ struct AppState {
     std::unique_ptr<clone_net::RtpH264Receiver> receiver;
     std::shared_ptr<clone_video::H264Decoder> decoder;
     std::shared_ptr<clone_video::FreshnessQueue> decodeQueue;
+    std::unique_ptr<clone_vcam::ReceiverOutput> virtualOutput;
+    std::atomic<std::uint64_t> sessionGeneration{0};
+    std::atomic_bool virtualOutputReady{false};
     std::thread decodeThread;
     std::mutex frameMutex;
-    std::unique_ptr<clone_video::DecodedFrame> latestFrame;
-    std::unique_ptr<clone_video::DecodedFrame> displayedFrame;
+    std::shared_ptr<const clone_video::DecodedFrame> latestFrame;
+    std::shared_ptr<const clone_video::DecodedFrame> displayedFrame;
     std::atomic_bool frameMessagePending{false};
     std::atomic<std::uint64_t> receivedPackets{0};
     std::atomic<std::uint64_t> lastPacketAgeMs{0};
@@ -194,6 +199,7 @@ LRESULT CALLBACK WindowProc(HWND window, UINT message, WPARAM, LPARAM lParam) {
     }
     case WM_DESTROY:
         g_app.server.Stop();
+        if (g_app.virtualOutput) g_app.virtualOutput->Stop();
         PostQuitMessage(0);
         return 0;
     default:
@@ -210,14 +216,28 @@ void UpdateFreshnessStats(const std::shared_ptr<clone_video::FreshnessQueue>& qu
     g_app.waitingForIdr.store(stats.waitingForIdr);
 }
 
+void ClearPreviewFrames() {
+    bool notify = false;
+    {
+        std::lock_guard lock(g_app.frameMutex);
+        g_app.latestFrame.reset();
+        g_app.displayedFrame.reset();
+        notify = !g_app.frameMessagePending.exchange(true);
+    }
+    g_app.lastPresentedNs.store(0);
+    if (notify) PostMessageW(g_app.window, kFrameMessage, 0, 0);
+}
+
 bool StartReceiver(const clone_net::SessionInfo& info) {
     auto decoder = std::make_shared<clone_video::H264Decoder>();
     if (!decoder->Start(info.hello.width, info.hello.height)) return false;
     g_app.decoder = decoder;
     auto queue = std::make_shared<clone_video::FreshnessQueue>(3);
     g_app.decodeQueue = queue;
+    const auto generation = g_app.sessionGeneration.fetch_add(1) + 1;
+    if (g_app.virtualOutput) g_app.virtualOutput->BeginSession(generation);
     UpdateFreshnessStats(queue);
-    g_app.decodeThread = std::thread([decoder, queue] {
+    g_app.decodeThread = std::thread([decoder, queue, generation] {
         const HRESULT comResult = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
         clone_net::H264AccessUnit unit;
         while (queue->Pop(unit)) {
@@ -231,10 +251,17 @@ bool StartReceiver(const clone_net::SessionInfo& info) {
                 const auto decodeFinished = std::chrono::steady_clock::now();
                 g_app.decodedFrames.fetch_add(1);
                 g_app.decodeAgeMs.store(static_cast<std::uint64_t>(std::chrono::duration_cast<std::chrono::milliseconds>(decodeFinished - unit.receivedAt).count()));
+                auto sharedFrame = std::make_shared<clone_video::DecodedFrame>(std::move(frame));
+                LARGE_INTEGER qpc{};
+                QueryPerformanceCounter(&qpc);
+                if (g_app.virtualOutput) {
+                    g_app.virtualOutput->OnDecodedFrame(sharedFrame, generation,
+                        static_cast<std::uint64_t>(qpc.QuadPart));
+                }
                 bool notify = false;
                 {
                     std::lock_guard lock(g_app.frameMutex);
-                    g_app.latestFrame = std::make_unique<clone_video::DecodedFrame>(std::move(frame));
+                    g_app.latestFrame = std::move(sharedFrame);
                     notify = !g_app.frameMessagePending.exchange(true);
                 }
                 if (notify) PostMessageW(g_app.window, kFrameMessage, 0, 0);
@@ -260,7 +287,11 @@ bool StartReceiver(const clone_net::SessionInfo& info) {
             g_app.lostPackets.store(lost);
             g_app.reorderedPackets.store(reordered);
             g_app.droppedAccessUnits.store(dropped);
-            g_app.streamStalled.store(stalled);
+            const bool wasStalled = g_app.streamStalled.exchange(stalled);
+            if (stalled && !wasStalled) {
+                if (g_app.virtualOutput) g_app.virtualOutput->SetState(clone_vcam::FrameState::Reconnecting);
+                ClearPreviewFrames();
+            }
             g_app.lastPacketAgeMs.store(packetAgeMs);
         });
     g_app.hardwareDecoder.store(std::wstring(decoder->Mode()) == L"hardware");
@@ -291,6 +322,17 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int showCommand) {
     ShowWindow(g_app.window, showCommand);
     SetTimer(g_app.window, kStatsTimer, 1000, nullptr);
 
+    g_app.virtualOutput = std::make_unique<clone_vcam::ReceiverOutput>();
+    const auto installationId = clone_vcam::VirtualCameraRegistration::GetInstallationId();
+    const HRESULT outputHr = installationId.empty() ? HRESULT_FROM_WIN32(ERROR_NOT_FOUND)
+        : g_app.virtualOutput->Start(installationId);
+    g_app.virtualOutputReady.store(SUCCEEDED(outputHr));
+    if (FAILED(outputHr)) {
+        wchar_t outputStatus[96]{};
+        swprintf_s(outputStatus, std::size(outputStatus), L"Virtual camera unavailable (0x%08lX)", outputHr);
+        SetWindowTextW(g_app.window, outputStatus);
+    }
+
     if (!g_app.server.Start(
             [](const clone_net::SessionInfo& info) {
                 g_app.selectedFps.store(info.hello.fps);
@@ -310,13 +352,16 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int showCommand) {
                     SetStatusAsync(L"No H.264 decoder could be initialized");
                     return false;
                 }
-                wchar_t connectedStatus[64]{};
-                swprintf_s(connectedStatus, std::size(connectedStatus), L"Connected · %ux%u@%u H.264",
-                    info.hello.width, info.hello.height, info.hello.fps);
+                wchar_t connectedStatus[128]{};
+                swprintf_s(connectedStatus, std::size(connectedStatus), L"Connected · %ux%u@%u H.264 · virtual camera %s",
+                    info.hello.width, info.hello.height, info.hello.fps,
+                    g_app.virtualOutputReady.load() ? L"ready" : L"unavailable");
                 SetStatusAsync(connectedStatus);
                 return true;
             },
             [] {
+                if (g_app.virtualOutput) g_app.virtualOutput->SetState(clone_vcam::FrameState::Disconnected);
+                ClearPreviewFrames();
                 if (g_app.receiver) { g_app.receiver->Stop(); g_app.receiver.reset(); }
                 if (g_app.decodeQueue) g_app.decodeQueue->Stop();
                 if (g_app.decodeThread.joinable()) g_app.decodeThread.join();

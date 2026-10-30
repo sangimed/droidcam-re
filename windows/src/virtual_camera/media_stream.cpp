@@ -102,6 +102,7 @@ HRESULT MediaStream::Start(const PROPVARIANT* pvarStartPosition) {
     std::lock_guard<std::mutex> lock(mutex_);
     if (FAILED(CheckShutdown())) return MF_E_SHUTDOWN;
     isStarted_ = true;
+    streamState_ = MF_STREAM_STATE_RUNNING;
     sampleClock_.Reset();
     return eventQueue_->QueueEventParamVar(MEStreamStarted, GUID_NULL, S_OK, pvarStartPosition);
 }
@@ -111,6 +112,7 @@ HRESULT MediaStream::Stop() {
     if (FAILED(CheckShutdown())) return MF_E_SHUTDOWN;
     if (isStarted_) {
         isStarted_ = false;
+        streamState_ = MF_STREAM_STATE_STOPPED;
         PROPVARIANT emptyVar;
         PropVariantInit(&emptyVar);
         return eventQueue_->QueueEventParamVar(MEStreamStopped, GUID_NULL, S_OK, &emptyVar);
@@ -123,6 +125,7 @@ HRESULT MediaStream::Shutdown() {
     if (isShutdown_) return MF_E_SHUTDOWN;
     isShutdown_ = true;
     isStarted_ = false;
+    streamState_ = MF_STREAM_STATE_STOPPED;
 
     frameReader_.Close();
     isReaderOpened_ = false;
@@ -133,6 +136,23 @@ HRESULT MediaStream::Shutdown() {
     }
     streamDescriptor_.Reset();
     source_ = nullptr;
+    return S_OK;
+}
+
+IFACEMETHODIMP MediaStream::SetStreamState(MF_STREAM_STATE state) {
+    if (state != MF_STREAM_STATE_STOPPED && state != MF_STREAM_STATE_PAUSED &&
+        state != MF_STREAM_STATE_RUNNING) return E_INVALIDARG;
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (FAILED(CheckShutdown())) return MF_E_SHUTDOWN;
+    streamState_ = state;
+    return S_OK;
+}
+
+IFACEMETHODIMP MediaStream::GetStreamState(MF_STREAM_STATE* state) {
+    if (!state) return E_POINTER;
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (FAILED(CheckShutdown())) return MF_E_SHUTDOWN;
+    *state = streamState_;
     return S_OK;
 }
 

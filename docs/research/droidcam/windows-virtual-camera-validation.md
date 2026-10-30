@@ -46,3 +46,21 @@ Environment scan during testing:
 - Discord: Process detected (`Discord.exe` running).
 - OBS: Not currently running (`obs64.exe` absent).
 - Actual application consumption gate requires the virtual camera registration (step 2) before selecting `DroidCam RE Windows Virtual Camera` in OBS Studio (Video Capture Device) and Discord (User Settings -> Voice & Video -> Camera).
+
+## 5. Receiver Integration (2026-10-30)
+
+- The Windows receiver now starts the shared-memory publisher when a registered installation ID is available. Failure is shown as a virtual-camera status while the H.264 preview remains available.
+- Each accepted receiver session gets a monotonically increasing local generation. Session start publishes a reconnecting image immediately; decoded frames enter a bounded newest-frame worker using the same shared frame allocation as the GDI preview.
+- Stream stall and disconnect publish neutral output and clear both queued and displayed preview frames. Stale callbacks from earlier generations are rejected.
+- The Release application and virtual-camera frame test targets build successfully. All six CTest targets pass on this host.
+- The synthetic probe opened the publisher and published 30 frames during a bounded two-second run.
+- OBS/Discord live consumption of the receiver path, network interruption recovery, and restart with consumers open have not been exercised; the existing concurrent-consumer gate remains unverified.
+
+## 6. Registration Error Follow-up (2026-10-30)
+
+- After an elevated `--register` attempt returned `0x80004002`, a direct COM query against the registered CLSID reproduced the exact failure: `IMFMediaSource` succeeded while `IMFActivate` returned `E_NOINTERFACE`.
+- The COM class factory had returned `MediaSource` directly for every requested interface. It now returns an `IMFActivate` implementation that creates and owns the media source on activation.
+- The new `sourceClassFactoryProvidesActivate` regression test failed before the fix and passes after it. Direct COM queries now return `S_OK` for both interfaces.
+- Frame Server validation also required `IMFMediaSourceEx`, `IKsControl`, and `IMFMediaStream2`, plus Frame Server stream attributes and matching stream identifiers. Those interfaces and attributes were added; the stream identifier mismatch found by `Start` (`MF_E_INVALIDSTREAMNUMBER`) was corrected and covered by regression assertions.
+- The updated `--register` command was then run elevated and succeeded, returning installation ID `{C69715A4-C9F8-4248-8DF9-AE6725D78825}`. Windows enumerates the device as `DroidCam Video` (`ROOT\\MEDIA\\0004`, status `OK`).
+- Discord camera preview is not yet verified. The UI showed the Voice & Video settings once but returned to the active channel during automated inspection. The camera was not turned on in the live voice channel, so no broadcast was initiated.

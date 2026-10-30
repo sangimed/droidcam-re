@@ -1,6 +1,15 @@
 # DroidCam clone: implementation roadmap
 
-This roadmap applies to a new, independent DroidCam-compatible product implemented in this repository. It is a separate product and does not reuse proprietary code. The repository currently contains the reverse-engineering documentation and official artifacts only; no Android or Windows application source exists yet.
+This roadmap applies to a new, independent DroidCam-compatible product implemented in this repository. It is a separate product and does not reuse proprietary code.
+
+## Current implementation status (2026-10-30)
+
+- **Vertical slice:** Android sender and Windows receiver are implemented; the receiver decodes H.264 and displays a local preview. Android profiles, telemetry, and bounded/freshness-aware decode are in place.
+- **Windows virtual camera:** Media Foundation source, registration probe, bounded shared-memory bridge, synthetic producer, and receiver-frame publishing are implemented. Elevated registration succeeded on the test host, Windows enumerates `DroidCam Video`, and all six Windows CTest targets pass.
+- **Compatibility gate:** Discord camera preview has not yet been confirmed. OBS and simultaneous OBS/Discord consumption, restart/recovery with consumers open, and the complete failure-injection matrix remain unverified. Do not mark the virtual webcam milestone complete until these checks have evidence.
+- **Next action:** In Discord, select `DroidCam Video` under User Settings → Voice & Video and confirm the private preview. Then complete the remaining Task 4 compatibility checks in the [Windows virtual-camera implementation plan](../superpowers/plans/2026-10-25-windows-virtual-camera.md). No camera broadcast was initiated during the current host test.
+
+See the [Windows virtual-camera validation report](windows-virtual-camera-validation.md) for host details and registration diagnostics.
 
 Every DroidCam-specific claim below is bounded by the evidence in the linked research files. Unverified behavior is a design question for the clone, not a feature to assume.
 
@@ -16,12 +25,12 @@ Every DroidCam-specific claim below is bounded by the evidence in the linked res
 
 | Phase | Deliverable | Exit evidence |
 |---|---|---|
-| 0 — scope | Written MVP, protocol choice, supported Android/Windows versions, codec and output requirements | Reviewable requirements and failure cases |
-| 1 — vertical slice | Android camera preview plus encoded stream to Windows preview over one transport | Reproducible stream, frame IDs, stage timing, reconnect behavior |
-| 2 — freshness and resilience | Bounded queues, drop/recovery rules, transport-loss behavior | Stall/loss experiments show bounded frame age and valid codec recovery |
-| 3 — quality and energy | Hardware/software codec comparison and adaptive profiles | Controlled latency, CPU/GPU, battery and thermal results |
-| 4 — virtual webcam | Windows virtual-camera output integration | Verified format contract and compatibility with target apps |
+| 0 — scope | **Complete** — approved vertical-slice and Windows webcam designs | Requirements and failure cases recorded in the specs |
+| 1 — vertical slice | **Implemented** — Android camera preview streams to the Windows receiver and preview | End-to-end stream and receiver telemetry documented; see the plan and E2E records |
+| 2 — freshness and resilience | **Implemented; runtime fault matrix pending** — bounded queues, drop/recovery rules, and transport-loss handling | Unit tests pass; grouped injected-stall/loss and recovery checks remain pending |
+| 3 — quality and energy | **Partially implemented; benchmark pending** — capture/encode telemetry and selectable profiles | Controlled codec, latency, CPU/GPU, battery, and thermal comparison remains pending in issue #4 |
+| 4 — virtual webcam | **Implemented; compatibility gate pending** — Windows virtual-camera output is wired to receiver frames | Registration/enumeration and six CTest targets pass; Discord preview, OBS, concurrent consumers, and live recovery still need observed validation |
 
 The Android sender now includes an explicit lower-resolution 720p profile and reversible black-screen DIM overlay based on observed DroidCam behavior. This is a mitigation to validate, not evidence that the clone has reached DroidCam's sustained thermal efficiency. See [thermal analysis](thermal-analysis.md) and grouped [E2E issue #4](https://github.com/sangimed/droidcam-re/issues/4).
 
-This sequence is a proposal based on the current workspace contents and reverse-engineering evidence. Implementation should begin only after approval of [the vertical-slice design](../../superpowers/specs/2026-10-24-droidcam-clone-vertical-slice.md) and its implementation plan. No numerical performance gain is claimed.
+The implementation status above is based on workspace and host-test evidence. The remaining validation items are explicit gates, not assumed passes. No numerical performance gain is claimed.

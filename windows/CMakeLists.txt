@@ -12,7 +12,8 @@ add_executable(droidcam_clone WIN32
 
 target_compile_features(droidcam_clone PRIVATE cxx_std_20)
 target_compile_definitions(droidcam_clone PRIVATE UNICODE _UNICODE WIN32_LEAN_AND_MEAN NOMINMAX)
-target_link_libraries(droidcam_clone PRIVATE ws2_32 d3d11 dxgi mfplat mfuuid ole32 gdi32)
+target_link_libraries(droidcam_clone PRIVATE ws2_32 d3d11 dxgi mfplat mfuuid ole32 gdi32 droidcam_clone_vcam_source shlwapi)
+
 
 enable_testing()
 add_executable(droidcam_clone_video_tests tests/nv12_to_bgra_test.cpp src/video/nv12_to_bgra.cpp)
@@ -41,9 +42,11 @@ target_include_directories(droidcam_clone_vcam_conversion PUBLIC src)
 
 add_executable(droidcam_clone_vcam_frame_tests tests/virtual_camera_frame_test.cpp)
 target_compile_features(droidcam_clone_vcam_frame_tests PRIVATE cxx_std_20)
+target_compile_definitions(droidcam_clone_vcam_frame_tests PRIVATE UNICODE _UNICODE WIN32_LEAN_AND_MEAN NOMINMAX)
 target_include_directories(droidcam_clone_vcam_frame_tests PRIVATE src)
-target_link_libraries(droidcam_clone_vcam_frame_tests PRIVATE droidcam_clone_vcam_conversion)
+target_link_libraries(droidcam_clone_vcam_frame_tests PRIVATE droidcam_clone_vcam_source droidcam_clone_vcam_conversion ole32 advapi32)
 add_test(NAME virtual_camera_frame COMMAND droidcam_clone_vcam_frame_tests)
+
 
 add_library(droidcam_clone_vcam_bridge STATIC
     src/virtual_camera/frame_bridge.cpp
@@ -60,9 +63,13 @@ add_test(NAME virtual_camera_bridge COMMAND droidcam_clone_vcam_bridge_tests)
 
 add_library(droidcam_clone_vcam_source STATIC
     src/virtual_camera/media_source.cpp
+    src/virtual_camera/media_source_activation.cpp
     src/virtual_camera/media_stream.cpp
+    src/virtual_camera/media_source_factory.cpp
     src/virtual_camera/registration.cpp
+    src/virtual_camera/receiver_output.cpp
 )
+
 target_compile_features(droidcam_clone_vcam_source PRIVATE cxx_std_20)
 target_compile_definitions(droidcam_clone_vcam_source PRIVATE UNICODE _UNICODE WIN32_LEAN_AND_MEAN NOMINMAX)
 target_include_directories(droidcam_clone_vcam_source PUBLIC src)
@@ -71,7 +78,9 @@ target_link_libraries(droidcam_clone_vcam_source PUBLIC droidcam_clone_vcam_brid
 add_library(droidcam_clone_virtual_camera SHARED
     src/virtual_camera/dllmain.cpp
     src/virtual_camera/media_source.cpp
+    src/virtual_camera/media_source_activation.cpp
     src/virtual_camera/media_stream.cpp
+    src/virtual_camera/media_source_factory.cpp
     src/virtual_camera/registration.cpp
     src/virtual_camera/virtual_camera.def
 )

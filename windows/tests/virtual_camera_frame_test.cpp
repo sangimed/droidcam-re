@@ -1,10 +1,18 @@
 #include "virtual_camera/frame_conversion.h"
+#include "virtual_camera/frame_bridge.h"
+#include "virtual_camera/receiver_output.h"
 
 #include <algorithm>
 #include <array>
+#include <chrono>
 #include <limits>
+#include <thread>
+#include <cstdio>
 
-#include "test_assertions.h"
+#define CHECK_ASSERT(expr) do { if (!(expr)) { std::fprintf(stderr, "FAIL line %d: %s\n", __LINE__, #expr); std::abort(); } } while(0)
+#define Check CHECK_ASSERT
+
+
 
 namespace {
 using namespace clone_vcam;
@@ -164,15 +172,158 @@ void neutralFramesReplaceOldVideoDeterministically() {
     Check(repeated.metadata.state == FrameState::Disconnected);
     Check(disconnected.nv12 == repeated.nv12);
 }
+
+void oldCallbackCannotPublishIntoNewSession() {
+    GUID guid{};
+    Check(SUCCEEDED(CoCreateGuid(&guid)));
+    wchar_t id[39]{};
+    StringFromGUID2(guid, id, 39);
+
+    ReceiverOutput output;
+    Check(SUCCEEDED(output.Start(id)));
+    output.BeginSession(1);
+
+    clone_video::DecodedFrame frame{2, 2, SolidBgra(2, 2, 255, 255, 255)};
+    LARGE_INTEGER qpc;
+    QueryPerformanceCounter(&qpc);
+
+    output.OnDecodedFrame(frame, 1, static_cast<uint64_t>(qpc.QuadPart));
+    std::this_thread::sleep_for(std::chrono::milliseconds(20));
+
+    FrameReader reader;
+    Check(SUCCEEDED(reader.Open(id)));
+    OutputFrame readFrame;
+    Check(reader.ReadLatest(static_cast<uint64_t>(qpc.QuadPart), readFrame));
+    Check(readFrame.metadata.generation == 1);
+
+    // Start generation 2
+    output.BeginSession(2);
+    // Old callback with generation 1 arrives -> must be rejected
+    output.OnDecodedFrame(frame, 1, static_cast<uint64_t>(qpc.QuadPart));
+    std::this_thread::sleep_for(std::chrono::milliseconds(20));
+
+    // Generation 2 frame arrives -> accepted
+    QueryPerformanceCounter(&qpc);
+    output.OnDecodedFrame(frame, 2, static_cast<uint64_t>(qpc.QuadPart));
+    std::this_thread::sleep_for(std::chrono::milliseconds(20));
+
+    Check(reader.ReadLatest(static_cast<uint64_t>(qpc.QuadPart), readFrame));
+    Check(readFrame.metadata.generation == 2);
+    output.Stop();
+}
+
+void disconnectInvalidatesPublishedFrame() {
+    GUID guid{};
+    Check(SUCCEEDED(CoCreateGuid(&guid)));
+    wchar_t id[39]{};
+    StringFromGUID2(guid, id, 39);
+
+    ReceiverOutput output;
+    Check(SUCCEEDED(output.Start(id)));
+    output.BeginSession(1);
+
+    clone_video::DecodedFrame frame{2, 2, SolidBgra(2, 2, 255, 255, 255)};
+    LARGE_INTEGER qpc;
+    QueryPerformanceCounter(&qpc);
+
+    output.OnDecodedFrame(frame, 1, static_cast<uint64_t>(qpc.QuadPart));
+    std::this_thread::sleep_for(std::chrono::milliseconds(20));
+
+    FrameReader reader;
+    Check(SUCCEEDED(reader.Open(id)));
+    OutputFrame readFrame;
+    Check(reader.ReadLatest(static_cast<uint64_t>(qpc.QuadPart), readFrame));
+    Check(readFrame.metadata.state == FrameState::Live);
+
+    // Disconnect invalidates published frame
+    output.SetState(FrameState::Disconnected);
+    std::this_thread::sleep_for(std::chrono::milliseconds(20));
+
+    QueryPerformanceCounter(&qpc);
+    Check(reader.ReadLatest(static_cast<uint64_t>(qpc.QuadPart), readFrame));
+    Check(readFrame.metadata.state == FrameState::Disconnected);
+    output.Stop();
+}
+
+void conversionFailureEmitsNeutral() {
+    GUID guid{};
+    Check(SUCCEEDED(CoCreateGuid(&guid)));
+    wchar_t id[39]{};
+    StringFromGUID2(guid, id, 39);
+
+    ReceiverOutput output;
+    Check(SUCCEEDED(output.Start(id)));
+    output.BeginSession(1);
+
+    // Corrupted frame with 0 dimensions
+    clone_video::DecodedFrame corruptFrame{0, 0, {}};
+    LARGE_INTEGER qpc;
+    QueryPerformanceCounter(&qpc);
+
+    output.OnDecodedFrame(corruptFrame, 1, static_cast<uint64_t>(qpc.QuadPart));
+    std::this_thread::sleep_for(std::chrono::milliseconds(20));
+
+    FrameReader reader;
+    Check(SUCCEEDED(reader.Open(id)));
+    OutputFrame readFrame;
+    Check(reader.ReadLatest(static_cast<uint64_t>(qpc.QuadPart), readFrame));
+    // Must have emitted a neutral frame with state Disconnected
+    Check(readFrame.metadata.state == FrameState::Disconnected);
+    output.Stop();
+}
+
+void slowOutputDoesNotBlockDecode() {
+    GUID guid{};
+    Check(SUCCEEDED(CoCreateGuid(&guid)));
+    wchar_t id[39]{};
+    StringFromGUID2(guid, id, 39);
+
+    ReceiverOutput output;
+    Check(SUCCEEDED(output.Start(id)));
+    output.BeginSession(1);
+
+    clone_video::DecodedFrame frame{1920, 1080, SolidBgra(1920, 1080, 100, 150, 200)};
+    LARGE_INTEGER qpc;
+    QueryPerformanceCounter(&qpc);
+
+    auto start = std::chrono::steady_clock::now();
+    for (int i = 0; i < 50; ++i) {
+        output.OnDecodedFrame(frame, 1, static_cast<uint64_t>(qpc.QuadPart));
+    }
+    auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::steady_clock::now() - start).count();
+
+    Check(elapsed < 200);
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    output.Stop();
+}
 }  // namespace
 
 int main() {
+    std::puts("rejectsInvalidDimensionsAndStride...");
     rejectsInvalidDimensionsAndStride();
+    std::puts("letterboxes720pAndPortrait...");
     letterboxes720pAndPortrait();
+    std::puts("convertsKnownBlackWhiteNv12...");
     convertsKnownBlackWhiteNv12();
+    std::puts("convertsBt709ColourAndAveragesChroma...");
     convertsBt709ColourAndAveragesChroma();
+    std::puts("generationRejectsOldFrames...");
     generationRejectsOldFrames();
+    std::puts("freshnessDeadline...");
     freshnessDeadline();
+    std::puts("sampleClockHasExactCadence...");
     sampleClockHasExactCadence();
+    std::puts("neutralFramesReplaceOldVideoDeterministically...");
     neutralFramesReplaceOldVideoDeterministically();
+    std::puts("oldCallbackCannotPublishIntoNewSession...");
+    oldCallbackCannotPublishIntoNewSession();
+    std::puts("disconnectInvalidatesPublishedFrame...");
+    disconnectInvalidatesPublishedFrame();
+    std::puts("conversionFailureEmitsNeutral...");
+    conversionFailureEmitsNeutral();
+    std::puts("slowOutputDoesNotBlockDecode...");
+    slowOutputDoesNotBlockDecode();
+    std::puts("PASS all virtual_camera_frame tests");
 }

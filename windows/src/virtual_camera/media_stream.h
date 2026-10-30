@@ -17,6 +17,7 @@ class MediaSource;
 
 class MediaStream final : public Microsoft::WRL::RuntimeClass<
     Microsoft::WRL::RuntimeClassFlags<Microsoft::WRL::ClassicCom>,
+    IMFMediaStream2,
     IMFMediaStream,
     IMFGetService>
 {
@@ -34,6 +35,8 @@ public:
     IFACEMETHODIMP GetMediaSource(IMFMediaSource** ppMediaSource) override;
     IFACEMETHODIMP GetStreamDescriptor(IMFStreamDescriptor** ppStreamDescriptor) override;
     IFACEMETHODIMP RequestSample(IUnknown* pToken) override;
+    IFACEMETHODIMP SetStreamState(MF_STREAM_STATE state) override;
+    IFACEMETHODIMP GetStreamState(MF_STREAM_STATE* state) override;
 
     // IMFGetService
     IFACEMETHODIMP GetService(REFGUID guidService, REFIID riid, LPVOID* ppvObject) override;
@@ -56,6 +59,7 @@ private:
     SampleClock sampleClock_;
     bool isShutdown_{false};
     bool isStarted_{false};
+    MF_STREAM_STATE streamState_{MF_STREAM_STATE_STOPPED};
     bool isReaderOpened_{false};
 };
 

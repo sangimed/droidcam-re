@@ -1,8 +1,10 @@
 #include "virtual_camera/media_source.h"
+#include "virtual_camera/media_source_factory.h"
 
 #include <mfapi.h>
 #include <mfidl.h>
 #include <mferror.h>
+#include <ksmedia.h>
 #include <wrl/client.h>
 #include <wrl/implements.h>
 
@@ -36,6 +38,45 @@ std::wstring NewId() {
     return id;
 }
 
+void sourceClassFactoryProvidesActivate() {
+    ComPtr<IClassFactory> factory;
+    Check(SUCCEEDED(CreateMediaSourceClassFactory(&factory)));
+
+    ComPtr<IMFActivate> activation;
+    Check(SUCCEEDED(factory->CreateInstance(nullptr, IID_PPV_ARGS(&activation))));
+
+    ComPtr<IMFMediaSource> source;
+    Check(SUCCEEDED(activation->ActivateObject(IID_PPV_ARGS(&source))));
+    Check(activation->ShutdownObject() == E_NOTIMPL);
+}
+
+void frameServerSourceInterfacesAreAvailable() {
+    ComPtr<IClassFactory> factory;
+    Check(SUCCEEDED(CreateMediaSourceClassFactory(&factory)));
+    ComPtr<IMFActivate> activation;
+    Check(SUCCEEDED(factory->CreateInstance(nullptr, IID_PPV_ARGS(&activation))));
+
+    ComPtr<IMFMediaSourceEx> source;
+    Check(SUCCEEDED(activation->ActivateObject(IID_PPV_ARGS(&source))));
+    ComPtr<IMFAttributes> attributes;
+    Check(SUCCEEDED(source->GetSourceAttributes(&attributes)));
+    ComPtr<IMFAttributes> streamAttributes;
+    Check(SUCCEEDED(source->GetStreamAttributes(0, &streamAttributes)));
+    UINT32 streamId = UINT32_MAX;
+    Check(SUCCEEDED(streamAttributes->GetUINT32(MF_DEVICESTREAM_STREAM_ID, &streamId)) && streamId == 0);
+    GUID streamCategory{};
+    Check(SUCCEEDED(streamAttributes->GetGUID(MF_DEVICESTREAM_STREAM_CATEGORY, &streamCategory)));
+    Check(streamCategory == PINNAME_VIDEO_CAPTURE);
+    UINT32 shared = 0;
+    Check(SUCCEEDED(streamAttributes->GetUINT32(MF_DEVICESTREAM_FRAMESERVER_SHARED, &shared)) && shared == TRUE);
+
+    const GUID iidKsControl = {0x28f54685, 0x06fd, 0x11d2, {0xb2, 0x7a, 0x00, 0xa0, 0xc9, 0x22, 0x31, 0x96}};
+    void* controls = nullptr;
+    Check(SUCCEEDED(activation->ActivateObject(iidKsControl, &controls)));
+    static_cast<IUnknown*>(controls)->Release();
+    Check(activation->ShutdownObject() == E_NOTIMPL);
+}
+
 void oneNv12Stream1080p30() {
     ComPtr<IMFMediaSource> source;
     Check(SUCCEEDED(MediaSource::CreateInstance(NewId(), &source)));
@@ -51,6 +92,8 @@ void oneNv12Stream1080p30() {
     ComPtr<IMFStreamDescriptor> sd;
     Check(SUCCEEDED(pd->GetStreamDescriptorByIndex(0, &selected, &sd)));
     Check(selected == TRUE);
+    DWORD streamIdentifier = UINT32_MAX;
+    Check(SUCCEEDED(sd->GetStreamIdentifier(&streamIdentifier)) && streamIdentifier == 0);
 
     ComPtr<IMFMediaTypeHandler> handler;
     Check(SUCCEEDED(sd->GetMediaTypeHandler(&handler)));
@@ -144,6 +187,11 @@ void requestSamplePreservesToken() {
     ComPtr<IMFMediaStream> stream;
     Check(SUCCEEDED(streamVar.punkVal->QueryInterface(IID_PPV_ARGS(&stream))));
     PropVariantClear(&streamVar);
+
+    ComPtr<IMFMediaStream2> stream2;
+    Check(SUCCEEDED(stream.As(&stream2)));
+    MF_STREAM_STATE streamState{};
+    Check(SUCCEEDED(stream2->GetStreamState(&streamState)) && streamState == MF_STREAM_STATE_RUNNING);
 
     Check(SUCCEEDED(source->GetEvent(0, &event)));
     Check(SUCCEEDED(event->GetType(&met)) && met == MESourceStarted);
@@ -392,6 +440,10 @@ int main() {
     Check(SUCCEEDED(CoInitializeEx(nullptr, COINIT_MULTITHREADED)));
     Check(SUCCEEDED(MFStartup(MF_VERSION, MFSTARTUP_NOSOCKET)));
 
+    std::fprintf(stderr, "Testing sourceClassFactoryProvidesActivate...\n");
+    sourceClassFactoryProvidesActivate();
+    std::fprintf(stderr, "Testing frameServerSourceInterfacesAreAvailable...\n");
+    frameServerSourceInterfacesAreAvailable();
     std::fprintf(stderr, "Testing oneNv12Stream1080p30...\n");
     oneNv12Stream1080p30();
     std::fprintf(stderr, "Testing invalidMediaTypeRejected...\n");

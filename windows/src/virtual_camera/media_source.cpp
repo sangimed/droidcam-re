@@ -2,6 +2,7 @@
 
 #include <mferror.h>
 #include <shlwapi.h>
+#include <ksmedia.h>
 
 #include "media_stream.h"
 
@@ -45,7 +46,8 @@ private:
 
 class ValidatingStreamDescriptor : public Microsoft::WRL::RuntimeClass<
     Microsoft::WRL::RuntimeClassFlags<Microsoft::WRL::ClassicCom>,
-    IMFStreamDescriptor>
+    IMFStreamDescriptor,
+    IMFAttributes>
 {
 public:
     explicit ValidatingStreamDescriptor(Microsoft::WRL::ComPtr<IMFStreamDescriptor> inner)
@@ -134,6 +136,7 @@ MediaSource::MediaSource() : MediaSource(ReadInstallationIdFromRegistry()) {}
 MediaSource::MediaSource(std::wstring installationId)
     : installationId_(std::move(installationId)) {
     MFCreateEventQueue(&eventQueue_);
+    MFCreateAttributes(&sourceAttributes_, 8);
 }
 
 MediaSource::~MediaSource() {
@@ -206,7 +209,7 @@ IFACEMETHODIMP MediaSource::CreatePresentationDescriptor(IMFPresentationDescript
     *ppPresentationDescriptor = nullptr;
     std::lock_guard<std::mutex> lock(mutex_);
     if (FAILED(CheckShutdown())) return MF_E_SHUTDOWN;
-    const auto hr = EnsurePresentationDescriptor();
+    auto hr = EnsurePresentationDescriptor();
     if (FAILED(hr)) return hr;
     return presentationDescriptor_->Clone(ppPresentationDescriptor);
 }
@@ -228,8 +231,11 @@ IFACEMETHODIMP MediaSource::Start(IMFPresentationDescriptor* pPresentationDescri
 
     if (selected) {
         if (!isStarted_) {
+            Microsoft::WRL::ComPtr<IMFMediaStream> mediaStream;
+            hr = stream_.As(&mediaStream);
+            if (FAILED(hr)) return hr;
             hr = eventQueue_->QueueEventParamUnk(MENewStream, GUID_NULL, S_OK,
-                                                 static_cast<IMFMediaStream*>(stream_.Get()));
+                                                 mediaStream.Get());
             if (FAILED(hr)) return hr;
         }
         hr = stream_->Start(pvarStartPosition);
@@ -293,6 +299,71 @@ IFACEMETHODIMP MediaSource::GetService(REFGUID guidService, REFIID riid, LPVOID*
     return MF_E_UNSUPPORTED_SERVICE;
 }
 
+IFACEMETHODIMP MediaSource::GetSourceAttributes(IMFAttributes** ppAttributes) {
+    if (!ppAttributes) return E_POINTER;
+    *ppAttributes = nullptr;
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (FAILED(CheckShutdown())) return MF_E_SHUTDOWN;
+    return sourceAttributes_ ? sourceAttributes_.CopyTo(ppAttributes) : E_OUTOFMEMORY;
+}
+
+IFACEMETHODIMP MediaSource::GetStreamAttributes(DWORD streamIdentifier, IMFAttributes** ppAttributes) {
+    if (!ppAttributes) return E_POINTER;
+    *ppAttributes = nullptr;
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (FAILED(CheckShutdown())) return MF_E_SHUTDOWN;
+    auto hr = EnsurePresentationDescriptor();
+    if (FAILED(hr)) return hr;
+    DWORD count = 0;
+    hr = presentationDescriptor_->GetStreamDescriptorCount(&count);
+    if (FAILED(hr)) return hr;
+    for (DWORD index = 0; index < count; ++index) {
+        BOOL selected = FALSE;
+        Microsoft::WRL::ComPtr<IMFStreamDescriptor> descriptor;
+        hr = presentationDescriptor_->GetStreamDescriptorByIndex(index, &selected, &descriptor);
+        if (FAILED(hr)) return hr;
+        DWORD currentIdentifier = 0;
+        hr = descriptor->GetStreamIdentifier(&currentIdentifier);
+        if (FAILED(hr)) return hr;
+        if (currentIdentifier != streamIdentifier) continue;
+        Microsoft::WRL::ComPtr<IMFAttributes> attributes;
+        hr = descriptor.As(&attributes);
+        if (FAILED(hr)) return hr;
+        return attributes.CopyTo(ppAttributes);
+    }
+    return MF_E_INVALIDSTREAMNUMBER;
+}
+
+IFACEMETHODIMP MediaSource::SetD3DManager(IUnknown* manager) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return CheckShutdown();
+}
+
+HRESULT MediaSource::CopySourceAttributes(IMFAttributes* attributes) {
+    if (!attributes) return E_POINTER;
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (FAILED(CheckShutdown())) return MF_E_SHUTDOWN;
+    return sourceAttributes_ ? attributes->CopyAllItems(sourceAttributes_.Get()) : E_OUTOFMEMORY;
+}
+
+HRESULT MediaSource::KsProperty(PKSPROPERTY property, ULONG propertyLength,
+                                 PVOID propertyData, ULONG dataLength, ULONG* bytesReturned) {
+    if (bytesReturned) *bytesReturned = 0;
+    return E_NOTIMPL;
+}
+
+HRESULT MediaSource::KsMethod(PKSMETHOD method, ULONG methodLength,
+                               PVOID methodData, ULONG dataLength, ULONG* bytesReturned) {
+    if (bytesReturned) *bytesReturned = 0;
+    return E_NOTIMPL;
+}
+
+HRESULT MediaSource::KsEvent(PKSEVENT event, ULONG eventLength,
+                              PVOID eventData, ULONG dataLength, ULONG* bytesReturned) {
+    if (bytesReturned) *bytesReturned = 0;
+    return E_NOTIMPL;
+}
+
 HRESULT MediaSource::EnsurePresentationDescriptor() {
     if (presentationDescriptor_) return S_OK;
 
@@ -323,7 +394,16 @@ HRESULT MediaSource::EnsurePresentationDescriptor() {
 
     IMFMediaType* types[] = {mediaType.Get()};
     Microsoft::WRL::ComPtr<IMFStreamDescriptor> streamDesc;
-    hr = MFCreateStreamDescriptor(1, 1, types, &streamDesc);
+    hr = MFCreateStreamDescriptor(0, 1, types, &streamDesc);
+    if (FAILED(hr)) return hr;
+
+    hr = streamDesc->SetUINT32(MF_DEVICESTREAM_STREAM_ID, 0);
+    if (FAILED(hr)) return hr;
+    hr = streamDesc->SetGUID(MF_DEVICESTREAM_STREAM_CATEGORY, PINNAME_VIDEO_CAPTURE);
+    if (FAILED(hr)) return hr;
+    hr = streamDesc->SetUINT32(MF_DEVICESTREAM_ATTRIBUTE_FRAMESOURCE_TYPES, MFFrameSourceTypes_Color);
+    if (FAILED(hr)) return hr;
+    hr = streamDesc->SetUINT32(MF_DEVICESTREAM_FRAMESERVER_SHARED, TRUE);
     if (FAILED(hr)) return hr;
 
     Microsoft::WRL::ComPtr<IMFMediaTypeHandler> handler;

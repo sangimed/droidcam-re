@@ -1,5 +1,8 @@
 #pragma once
 
+#include <unknwn.h>
+#include <ks.h>
+#include <devicetopology.h>
 #include <mfapi.h>
 #include <mfidl.h>
 #include <wrl/client.h>
@@ -24,8 +27,10 @@ class MediaStream;
 
 class MediaSource final : public Microsoft::WRL::RuntimeClass<
     Microsoft::WRL::RuntimeClassFlags<Microsoft::WRL::ClassicCom>,
+    IMFMediaSourceEx,
     IMFMediaSource,
-    IMFGetService>
+    IMFGetService,
+    IKsControl>
 {
 public:
     MediaSource();
@@ -48,6 +53,21 @@ public:
     IFACEMETHODIMP Pause() override;
     IFACEMETHODIMP Shutdown() override;
 
+    // IMFMediaSourceEx
+    IFACEMETHODIMP GetSourceAttributes(IMFAttributes** ppAttributes) override;
+    IFACEMETHODIMP GetStreamAttributes(DWORD streamIdentifier, IMFAttributes** ppAttributes) override;
+    IFACEMETHODIMP SetD3DManager(IUnknown* manager) override;
+
+    // IKsControl
+    HRESULT STDMETHODCALLTYPE KsProperty(PKSPROPERTY property, ULONG propertyLength,
+        PVOID propertyData, ULONG dataLength, ULONG* bytesReturned) override;
+    HRESULT STDMETHODCALLTYPE KsMethod(PKSMETHOD method, ULONG methodLength,
+        PVOID methodData, ULONG dataLength, ULONG* bytesReturned) override;
+    HRESULT STDMETHODCALLTYPE KsEvent(PKSEVENT event, ULONG eventLength,
+        PVOID eventData, ULONG dataLength, ULONG* bytesReturned) override;
+
+    HRESULT CopySourceAttributes(IMFAttributes* attributes);
+
     // IMFGetService
     IFACEMETHODIMP GetService(REFGUID guidService, REFIID riid, LPVOID* ppvObject) override;
 
@@ -60,6 +80,7 @@ private:
     mutable std::mutex mutex_;
     std::wstring installationId_;
     Microsoft::WRL::ComPtr<IMFMediaEventQueue> eventQueue_;
+    Microsoft::WRL::ComPtr<IMFAttributes> sourceAttributes_;
     Microsoft::WRL::ComPtr<IMFPresentationDescriptor> presentationDescriptor_;
     Microsoft::WRL::ComPtr<MediaStream> stream_;
     bool isShutdown_{false};

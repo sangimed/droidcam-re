@@ -34,10 +34,12 @@ class MediaSource final : public Microsoft::WRL::RuntimeClass<
 {
 public:
     MediaSource();
-    explicit MediaSource(std::wstring installationId);
+    explicit MediaSource(std::wstring installationId, std::wstring producerSid = {});
     ~MediaSource() override;
 
     static HRESULT CreateInstance(const std::wstring& installationId, IMFMediaSource** ppSource);
+    static HRESULT CreateInstance(const std::wstring& installationId, const std::wstring& producerSid,
+                                  IMFMediaSource** ppSource);
 
     // IMFMediaEventGenerator
     IFACEMETHODIMP GetEvent(DWORD dwFlags, IMFMediaEvent** ppEvent) override;
@@ -79,6 +81,7 @@ private:
 
     mutable std::mutex mutex_;
     std::wstring installationId_;
+    std::wstring producerSid_;
     Microsoft::WRL::ComPtr<IMFMediaEventQueue> eventQueue_;
     Microsoft::WRL::ComPtr<IMFAttributes> sourceAttributes_;
     Microsoft::WRL::ComPtr<IMFPresentationDescriptor> presentationDescriptor_;

@@ -77,6 +77,33 @@ void frameServerSourceInterfacesAreAvailable() {
     Check(activation->ShutdownObject() == E_NOTIMPL);
 }
 
+void sourceStartEventOrderMatchesFrameServer() {
+    ComPtr<IMFMediaSource> source;
+    Check(SUCCEEDED(MediaSource::CreateInstance(NewId(), &source)));
+    ComPtr<IMFPresentationDescriptor> descriptor;
+    Check(SUCCEEDED(source->CreatePresentationDescriptor(&descriptor)));
+    PROPVARIANT startPosition;
+    PropVariantInit(&startPosition);
+    startPosition.vt = VT_I8;
+    Check(SUCCEEDED(source->Start(descriptor.Get(), nullptr, &startPosition)));
+
+    ComPtr<IMFMediaEvent> event;
+    Check(SUCCEEDED(source->GetEvent(0, &event)));
+    MediaEventType eventType{};
+    Check(SUCCEEDED(event->GetType(&eventType)) && eventType == MESourceStarted);
+    Check(SUCCEEDED(source->GetEvent(0, &event)));
+    Check(SUCCEEDED(event->GetType(&eventType)) && eventType == MENewStream);
+    PROPVARIANT streamValue;
+    PropVariantInit(&streamValue);
+    Check(SUCCEEDED(event->GetValue(&streamValue)));
+    ComPtr<IMFMediaStream> stream;
+    Check(SUCCEEDED(streamValue.punkVal->QueryInterface(IID_PPV_ARGS(&stream))));
+    PropVariantClear(&streamValue);
+    Check(SUCCEEDED(stream->GetEvent(0, &event)));
+    Check(SUCCEEDED(event->GetType(&eventType)) && eventType == MEStreamStarted);
+    Check(SUCCEEDED(source->Shutdown()));
+}
+
 void oneNv12Stream1080p30() {
     ComPtr<IMFMediaSource> source;
     Check(SUCCEEDED(MediaSource::CreateInstance(NewId(), &source)));
@@ -179,6 +206,8 @@ void requestSamplePreservesToken() {
     ComPtr<IMFMediaEvent> event;
     Check(SUCCEEDED(source->GetEvent(0, &event)));
     MediaEventType met;
+    Check(SUCCEEDED(event->GetType(&met)) && met == MESourceStarted);
+    Check(SUCCEEDED(source->GetEvent(0, &event)));
     Check(SUCCEEDED(event->GetType(&met)) && met == MENewStream);
 
     PROPVARIANT streamVar;
@@ -193,14 +222,13 @@ void requestSamplePreservesToken() {
     MF_STREAM_STATE streamState{};
     Check(SUCCEEDED(stream2->GetStreamState(&streamState)) && streamState == MF_STREAM_STATE_RUNNING);
 
-    Check(SUCCEEDED(source->GetEvent(0, &event)));
-    Check(SUCCEEDED(event->GetType(&met)) && met == MESourceStarted);
-
     Check(SUCCEEDED(stream->GetEvent(0, &event)));
     Check(SUCCEEDED(event->GetType(&met)) && met == MEStreamStarted);
 
     auto token = Microsoft::WRL::Make<DummyToken>();
+    const LONGLONG beforeRequest = MFGetSystemTime();
     Check(SUCCEEDED(stream->RequestSample(token.Get())));
+    const LONGLONG afterRequest = MFGetSystemTime();
 
     Check(SUCCEEDED(stream->GetEvent(0, &event)));
     Check(SUCCEEDED(event->GetType(&met)) && met == MEMediaSample);
@@ -217,7 +245,8 @@ void requestSamplePreservesToken() {
     Check(receivedToken.Get() == token.Get());
 
     LONGLONG sampleTime = 0, sampleDuration = 0;
-    Check(SUCCEEDED(sample->GetSampleTime(&sampleTime)) && sampleTime == 0);
+    Check(SUCCEEDED(sample->GetSampleTime(&sampleTime)));
+    Check(sampleTime >= beforeRequest && sampleTime <= afterRequest);
     Check(SUCCEEDED(sample->GetSampleDuration(&sampleDuration)));
     Check(sampleDuration == 333'333 || sampleDuration == 333'334);
 
@@ -242,6 +271,10 @@ void stopShutdownUnblocksRequests() {
 
     ComPtr<IMFMediaEvent> event;
     Check(SUCCEEDED(source->GetEvent(0, &event)));
+    MediaEventType eventType{};
+    Check(SUCCEEDED(event->GetType(&eventType)) && eventType == MESourceStarted);
+    Check(SUCCEEDED(source->GetEvent(0, &event)));
+    Check(SUCCEEDED(event->GetType(&eventType)) && eventType == MENewStream);
     PROPVARIANT streamVar;
     PropVariantInit(&streamVar);
     Check(SUCCEEDED(event->GetValue(&streamVar)));
@@ -250,7 +283,6 @@ void stopShutdownUnblocksRequests() {
     PropVariantClear(&streamVar);
 
     MediaEventType met;
-    Check(SUCCEEDED(source->GetEvent(0, &event)));
     Check(SUCCEEDED(stream->GetEvent(0, &event)));
 
     Check(SUCCEEDED(source->Stop()));
@@ -290,6 +322,13 @@ void independentConsumerClocks() {
     ComPtr<IMFMediaEvent> event1, event2;
     Check(SUCCEEDED(source1->GetEvent(0, &event1)));
     Check(SUCCEEDED(source2->GetEvent(0, &event2)));
+    MediaEventType eventType1{}, eventType2{};
+    Check(SUCCEEDED(event1->GetType(&eventType1)) && eventType1 == MESourceStarted);
+    Check(SUCCEEDED(event2->GetType(&eventType2)) && eventType2 == MESourceStarted);
+    Check(SUCCEEDED(source1->GetEvent(0, &event1)));
+    Check(SUCCEEDED(source2->GetEvent(0, &event2)));
+    Check(SUCCEEDED(event1->GetType(&eventType1)) && eventType1 == MENewStream);
+    Check(SUCCEEDED(event2->GetType(&eventType2)) && eventType2 == MENewStream);
 
     PROPVARIANT sv1, sv2;
     PropVariantInit(&sv1);
@@ -302,14 +341,14 @@ void independentConsumerClocks() {
     PropVariantClear(&sv1);
     PropVariantClear(&sv2);
 
-    Check(SUCCEEDED(source1->GetEvent(0, &event1)));
-    Check(SUCCEEDED(source2->GetEvent(0, &event2)));
     Check(SUCCEEDED(stream1->GetEvent(0, &event1)));
     Check(SUCCEEDED(stream2->GetEvent(0, &event2)));
 
-    LONGLONG end1 = 0;
+    LONGLONG previousTime = 0;
     for (int i = 0; i < 30; ++i) {
+        const LONGLONG beforeRequest = MFGetSystemTime();
         Check(SUCCEEDED(stream1->RequestSample(nullptr)));
+        const LONGLONG afterRequest = MFGetSystemTime();
         Check(SUCCEEDED(stream1->GetEvent(0, &event1)));
         PROPVARIANT sampleVar;
         PropVariantInit(&sampleVar);
@@ -321,13 +360,16 @@ void independentConsumerClocks() {
         LONGLONG t = 0, d = 0;
         Check(SUCCEEDED(sample->GetSampleTime(&t)));
         Check(SUCCEEDED(sample->GetSampleDuration(&d)));
-        Check(t == end1);
-        end1 = t + d;
+        Check(t >= beforeRequest && t <= afterRequest);
+        Check(t >= previousTime);
+        Check(d == 333'333 || d == 333'334);
+        previousTime = t;
     }
-    Check(end1 == 10'000'000);
 
-    // Stream 2 requests its first sample; its clock must start from 0
+    // Stream 2 uses the same QPC time base independently of its request count.
+    const LONGLONG beforeRequest2 = MFGetSystemTime();
     Check(SUCCEEDED(stream2->RequestSample(nullptr)));
+    const LONGLONG afterRequest2 = MFGetSystemTime();
     Check(SUCCEEDED(stream2->GetEvent(0, &event2)));
     PROPVARIANT sampleVar2;
     PropVariantInit(&sampleVar2);
@@ -338,7 +380,7 @@ void independentConsumerClocks() {
 
     LONGLONG t2 = 0;
     Check(SUCCEEDED(sample2->GetSampleTime(&t2)));
-    Check(t2 == 0);
+    Check(t2 >= beforeRequest2 && t2 <= afterRequest2);
 
     Check(SUCCEEDED(source1->Shutdown()));
     Check(SUCCEEDED(source2->Shutdown()));
@@ -360,6 +402,10 @@ void missingProducerGeneratesNeutral() {
 
     ComPtr<IMFMediaEvent> event;
     Check(SUCCEEDED(source->GetEvent(0, &event)));
+    MediaEventType eventType{};
+    Check(SUCCEEDED(event->GetType(&eventType)) && eventType == MESourceStarted);
+    Check(SUCCEEDED(source->GetEvent(0, &event)));
+    Check(SUCCEEDED(event->GetType(&eventType)) && eventType == MENewStream);
     PROPVARIANT streamVar;
     PropVariantInit(&streamVar);
     Check(SUCCEEDED(event->GetValue(&streamVar)));
@@ -367,7 +413,6 @@ void missingProducerGeneratesNeutral() {
     Check(SUCCEEDED(streamVar.punkVal->QueryInterface(IID_PPV_ARGS(&stream))));
     PropVariantClear(&streamVar);
 
-    Check(SUCCEEDED(source->GetEvent(0, &event)));
     Check(SUCCEEDED(stream->GetEvent(0, &event)));
 
     // 1. Missing producer -> neutral frame
@@ -433,6 +478,58 @@ void missingProducerGeneratesNeutral() {
     Check(SUCCEEDED(source->Shutdown()));
 }
 
+void mediaStreamUsesTrustedProducerSid() {
+    const auto id = NewId();
+    FramePublisher publisher;
+    Check(SUCCEEDED(publisher.Open(id)));
+    LARGE_INTEGER qpc{};
+    QueryPerformanceCounter(&qpc);
+    OutputFrame liveFrame{{1, 1, static_cast<std::uint64_t>(qpc.QuadPart), FrameState::Live},
+                          std::vector<std::uint8_t>(kOutputFrameBytes, 200)};
+    Check(publisher.Publish(liveFrame));
+
+    ComPtr<IMFMediaSource> source;
+    Check(SUCCEEDED(MediaSource::CreateInstance(id, L"S-1-5-19", &source)));
+    ComPtr<IMFPresentationDescriptor> descriptor;
+    Check(SUCCEEDED(source->CreatePresentationDescriptor(&descriptor)));
+    PROPVARIANT startPosition;
+    PropVariantInit(&startPosition);
+    startPosition.vt = VT_I8;
+    Check(SUCCEEDED(source->Start(descriptor.Get(), nullptr, &startPosition)));
+
+    ComPtr<IMFMediaEvent> event;
+    Check(SUCCEEDED(source->GetEvent(0, &event)));
+    MediaEventType eventType{};
+    Check(SUCCEEDED(event->GetType(&eventType)) && eventType == MESourceStarted);
+    Check(SUCCEEDED(source->GetEvent(0, &event)));
+    Check(SUCCEEDED(event->GetType(&eventType)) && eventType == MENewStream);
+    PROPVARIANT streamValue;
+    PropVariantInit(&streamValue);
+    Check(SUCCEEDED(event->GetValue(&streamValue)));
+    ComPtr<IMFMediaStream> stream;
+    Check(SUCCEEDED(streamValue.punkVal->QueryInterface(IID_PPV_ARGS(&stream))));
+    PropVariantClear(&streamValue);
+    Check(SUCCEEDED(stream->GetEvent(0, &event)));
+
+    Check(SUCCEEDED(stream->RequestSample(nullptr)));
+    Check(SUCCEEDED(stream->GetEvent(0, &event)));
+    PROPVARIANT sampleValue;
+    PropVariantInit(&sampleValue);
+    Check(SUCCEEDED(event->GetValue(&sampleValue)));
+    ComPtr<IMFSample> sample;
+    Check(SUCCEEDED(sampleValue.punkVal->QueryInterface(IID_PPV_ARGS(&sample))));
+    PropVariantClear(&sampleValue);
+    ComPtr<IMFMediaBuffer> buffer;
+    Check(SUCCEEDED(sample->ConvertToContiguousBuffer(&buffer)));
+    BYTE* data = nullptr;
+    DWORD length = 0;
+    Check(SUCCEEDED(buffer->Lock(&data, nullptr, &length)));
+    Check(length == kOutputFrameBytes);
+    Check(data[0] == 32); // Wrong trusted owner must not expose the producer's frame.
+    buffer->Unlock();
+    Check(SUCCEEDED(source->Shutdown()));
+}
+
 }  // namespace
 
 int main() {
@@ -444,6 +541,8 @@ int main() {
     sourceClassFactoryProvidesActivate();
     std::fprintf(stderr, "Testing frameServerSourceInterfacesAreAvailable...\n");
     frameServerSourceInterfacesAreAvailable();
+    std::fprintf(stderr, "Testing sourceStartEventOrderMatchesFrameServer...\n");
+    sourceStartEventOrderMatchesFrameServer();
     std::fprintf(stderr, "Testing oneNv12Stream1080p30...\n");
     oneNv12Stream1080p30();
     std::fprintf(stderr, "Testing invalidMediaTypeRejected...\n");
@@ -456,6 +555,8 @@ int main() {
     independentConsumerClocks();
     std::fprintf(stderr, "Testing missingProducerGeneratesNeutral...\n");
     missingProducerGeneratesNeutral();
+    std::fprintf(stderr, "Testing mediaStreamUsesTrustedProducerSid...\n");
+    mediaStreamUsesTrustedProducerSid();
 
     MFShutdown();
     CoUninitialize();

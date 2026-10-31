@@ -8,10 +8,11 @@
 
 namespace clone_vcam {
 
-MediaStream::MediaStream(MediaSource* source, std::wstring installationId,
+MediaStream::MediaStream(MediaSource* source, std::wstring installationId, std::wstring producerSid,
                          Microsoft::WRL::ComPtr<IMFStreamDescriptor> streamDescriptor)
     : source_(source),
       installationId_(std::move(installationId)),
+      producerSid_(std::move(producerSid)),
       streamDescriptor_(std::move(streamDescriptor)) {
     MFCreateEventQueue(&eventQueue_);
 }
@@ -158,7 +159,10 @@ IFACEMETHODIMP MediaStream::GetStreamState(MF_STREAM_STATE* state) {
 
 HRESULT MediaStream::DeliverSample(IUnknown* pToken) {
     if (!isReaderOpened_ && !installationId_.empty()) {
-        if (SUCCEEDED(frameReader_.Open(installationId_))) {
+        const HRESULT openHr = producerSid_.empty()
+            ? frameReader_.Open(installationId_)
+            : frameReader_.Open(installationId_, producerSid_);
+        if (SUCCEEDED(openHr)) {
             isReaderOpened_ = true;
         }
     }
@@ -196,8 +200,10 @@ HRESULT MediaStream::DeliverSample(IUnknown* pToken) {
     if (FAILED(hr)) return hr;
 
     const auto timing = sampleClock_.Next();
-    sample->SetSampleTime(timing.timestamp);
-    sample->SetSampleDuration(timing.duration);
+    hr = sample->SetSampleTime(MFGetSystemTime());
+    if (FAILED(hr)) return hr;
+    hr = sample->SetSampleDuration(timing.duration);
+    if (FAILED(hr)) return hr;
 
     if (pToken) {
         sample->SetUnknown(MFSampleExtension_Token, pToken);

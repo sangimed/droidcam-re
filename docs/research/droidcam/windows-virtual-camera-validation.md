@@ -70,3 +70,10 @@ Environment scan during testing:
 - `tools/start-virtual-camera-test.ps1` checks the registered camera, starts or reuses the Windows receiver, and launches the Android app on one authorized ADB device. Run it from any directory with `powershell -File tools/start-virtual-camera-test.ps1`; pass `-Build` to build both apps first.
 - Camera registration is persistent and is not repeated during normal startup. If the camera is missing, `-RegisterCamera` explicitly requests Administrator approval to run the registration probe.
 - Host check: the script started the receiver (PID 25740), launched `dev.droidcamclone.app` on ADB device `d3ec6d70`, and confirmed `DroidCam Video` status `OK`. The user still enters the reachable Windows IPv4 address and taps **Connect** in Android; no Discord UI is opened by this script.
+
+## 8. Live camera consumption (2026-10-31)
+
+- The Android-to-Windows shared frame remained `Live` while Discord and an isolated OBS profile initially showed a black camera preview. Frame Server activation and NV12 type negotiation succeeded, but an independent FFmpeg DirectShow capture received zero frames.
+- The source emitted sample timestamps starting at zero. Frame Server requires timestamps correlated with QPC time. A source test now checks that each requested sample's timestamp falls within the surrounding `MFGetSystemTime()` interval; it failed before the change and passes after it.
+- The rebuilt virtual-camera DLL was loaded after stopping Frame Server. FFmpeg then captured five 1920×1080 frames from `DroidCam RE (Windows Virtual Camera)`; frame hashes varied. OBS 32.2.2, using a dedicated `DroidCam RE Test` profile and scene collection, displayed the live tablet view. No OBS recording or stream was started.
+- Closing OBS and capturing five frames again succeeded. A simultaneous FFmpeg capture while OBS was open returned no frame, so concurrent-consumer behavior still needs investigation. Discord has not been retested after the timestamp fix and remains the next compatibility gate.

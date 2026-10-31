@@ -22,7 +22,8 @@ class MediaStream final : public Microsoft::WRL::RuntimeClass<
     IMFGetService>
 {
 public:
-    MediaStream(MediaSource* source, std::wstring installationId, Microsoft::WRL::ComPtr<IMFStreamDescriptor> streamDescriptor);
+    MediaStream(MediaSource* source, std::wstring installationId, std::wstring producerSid,
+                Microsoft::WRL::ComPtr<IMFStreamDescriptor> streamDescriptor);
     ~MediaStream() override;
 
     // IMFMediaEventGenerator
@@ -53,6 +54,7 @@ private:
     mutable std::mutex mutex_;
     MediaSource* source_{nullptr};
     std::wstring installationId_;
+    std::wstring producerSid_;
     Microsoft::WRL::ComPtr<IMFStreamDescriptor> streamDescriptor_;
     Microsoft::WRL::ComPtr<IMFMediaEventQueue> eventQueue_;
     FrameReader frameReader_;

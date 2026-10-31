@@ -129,12 +129,28 @@ std::wstring ReadInstallationIdFromRegistry() {
     return {};
 }
 
+std::wstring ReadProducerSidFromRegistry() {
+    wchar_t sid[SECURITY_MAX_SID_SIZE * 2]{};
+    DWORD size = sizeof(sid);
+    if (RegGetValueW(HKEY_LOCAL_MACHINE, L"SOFTWARE\\DroidCamClone", L"ProducerSid",
+                     RRF_RT_REG_SZ, nullptr, sid, &size) == ERROR_SUCCESS) {
+        return sid;
+    }
+    size = sizeof(sid);
+    if (RegGetValueW(HKEY_CURRENT_USER, L"SOFTWARE\\DroidCamClone", L"ProducerSid",
+                     RRF_RT_REG_SZ, nullptr, sid, &size) == ERROR_SUCCESS) {
+        return sid;
+    }
+    return {};
+}
+
 }  // namespace
 
-MediaSource::MediaSource() : MediaSource(ReadInstallationIdFromRegistry()) {}
+MediaSource::MediaSource()
+    : MediaSource(ReadInstallationIdFromRegistry(), ReadProducerSidFromRegistry()) {}
 
-MediaSource::MediaSource(std::wstring installationId)
-    : installationId_(std::move(installationId)) {
+MediaSource::MediaSource(std::wstring installationId, std::wstring producerSid)
+    : installationId_(std::move(installationId)), producerSid_(std::move(producerSid)) {
     MFCreateEventQueue(&eventQueue_);
     MFCreateAttributes(&sourceAttributes_, 8);
 }
@@ -144,9 +160,14 @@ MediaSource::~MediaSource() {
 }
 
 HRESULT MediaSource::CreateInstance(const std::wstring& installationId, IMFMediaSource** ppSource) {
+    return CreateInstance(installationId, {}, ppSource);
+}
+
+HRESULT MediaSource::CreateInstance(const std::wstring& installationId, const std::wstring& producerSid,
+                                    IMFMediaSource** ppSource) {
     if (!ppSource) return E_POINTER;
     *ppSource = nullptr;
-    auto source = Microsoft::WRL::Make<MediaSource>(installationId);
+    auto source = Microsoft::WRL::Make<MediaSource>(installationId, producerSid);
     if (!source) return E_OUTOFMEMORY;
     return source->QueryInterface(IID_PPV_ARGS(ppSource));
 }
@@ -230,6 +251,12 @@ IFACEMETHODIMP MediaSource::Start(IMFPresentationDescriptor* pPresentationDescri
     if (FAILED(hr)) return hr;
 
     if (selected) {
+        hr = eventQueue_->QueueEventParamVar(MESourceStarted, GUID_NULL, S_OK, pvarStartPosition);
+        if (FAILED(hr)) return hr;
+
+        hr = stream_->SetStreamState(MF_STREAM_STATE_RUNNING);
+        if (FAILED(hr)) return hr;
+
         if (!isStarted_) {
             Microsoft::WRL::ComPtr<IMFMediaStream> mediaStream;
             hr = stream_.As(&mediaStream);
@@ -239,9 +266,6 @@ IFACEMETHODIMP MediaSource::Start(IMFPresentationDescriptor* pPresentationDescri
             if (FAILED(hr)) return hr;
         }
         hr = stream_->Start(pvarStartPosition);
-        if (FAILED(hr)) return hr;
-
-        hr = eventQueue_->QueueEventParamVar(MESourceStarted, GUID_NULL, S_OK, pvarStartPosition);
         if (FAILED(hr)) return hr;
 
         isStarted_ = true;
@@ -422,7 +446,7 @@ HRESULT MediaSource::EnsurePresentationDescriptor() {
     hr = presentationDescriptor_->SelectStream(0);
     if (FAILED(hr)) return hr;
 
-    stream_ = Microsoft::WRL::Make<MediaStream>(this, installationId_, validatingDesc);
+    stream_ = Microsoft::WRL::Make<MediaStream>(this, installationId_, producerSid_, validatingDesc);
 
     if (!stream_) return E_OUTOFMEMORY;
 

@@ -2,8 +2,11 @@
 
 #include <mfapi.h>
 #include <mfvirtualcamera.h>
+#include <sddl.h>
 #include <wrl/client.h>
 #include <shlwapi.h>
+
+#include <vector>
 
 #include "media_source.h"
 
@@ -12,6 +15,27 @@ using Microsoft::WRL::ComPtr;
 namespace clone_vcam {
 
 namespace {
+
+HRESULT CurrentUserSid(std::wstring& sid) {
+    HANDLE token{};
+    if (!OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &token)) return HRESULT_FROM_WIN32(GetLastError());
+    DWORD bytes{};
+    GetTokenInformation(token, TokenUser, nullptr, 0, &bytes);
+    std::vector<BYTE> tokenData(bytes);
+    if (!GetTokenInformation(token, TokenUser, tokenData.data(), bytes, &bytes)) {
+        const HRESULT hr = HRESULT_FROM_WIN32(GetLastError());
+        CloseHandle(token);
+        return hr;
+    }
+    CloseHandle(token);
+    PWSTR sidText{};
+    if (!ConvertSidToStringSidW(reinterpret_cast<TOKEN_USER*>(tokenData.data())->User.Sid, &sidText)) {
+        return HRESULT_FROM_WIN32(GetLastError());
+    }
+    sid = sidText;
+    LocalFree(sidText);
+    return S_OK;
+}
 
 std::wstring GetCurrentModulePath() {
     HMODULE hModule = nullptr;
@@ -45,7 +69,7 @@ std::wstring FindDllPath() {
 
 
 HRESULT RegisterComServer(HKEY root, const std::wstring& clsid, const std::wstring& dllPath,
-                          const std::wstring& installationId) {
+                          const std::wstring& installationId, const std::wstring& producerSid) {
     std::wstring subkey = L"Software\\Classes\\CLSID\\" + clsid;
     HKEY key{};
     auto status = RegCreateKeyExW(root, subkey.c_str(), 0, nullptr, 0, KEY_SET_VALUE, nullptr, &key, nullptr);
@@ -83,6 +107,11 @@ HRESULT RegisterComServer(HKEY root, const std::wstring& clsid, const std::wstri
             RegSetValueExW(appKey, L"InstallationId", 0, REG_SZ,
                            reinterpret_cast<const BYTE*>(installationId.c_str()),
                            static_cast<DWORD>((installationId.size() + 1) * sizeof(wchar_t)));
+        }
+        if (!producerSid.empty()) {
+            RegSetValueExW(appKey, L"ProducerSid", 0, REG_SZ,
+                           reinterpret_cast<const BYTE*>(producerSid.c_str()),
+                           static_cast<DWORD>((producerSid.size() + 1) * sizeof(wchar_t)));
         }
         RegCloseKey(appKey);
     }
@@ -133,14 +162,18 @@ HRESULT VirtualCameraRegistration::EnsureInstalled(const std::wstring& installat
         id = buf;
     }
 
+    std::wstring producerSid;
+    HRESULT hr = CurrentUserSid(producerSid);
+    if (FAILED(hr)) return hr;
+
     std::wstring dllPath = FindDllPath();
     // Register COM server in HKLM if elevated, and HKCU
-    RegisterComServer(HKEY_LOCAL_MACHINE, kSourceClsidString, dllPath, id);
-    RegisterComServer(HKEY_CURRENT_USER, kSourceClsidString, dllPath, id);
+    RegisterComServer(HKEY_LOCAL_MACHINE, kSourceClsidString, dllPath, id, producerSid);
+    RegisterComServer(HKEY_CURRENT_USER, kSourceClsidString, dllPath, id, producerSid);
 
     // Register with Media Foundation Virtual Camera API
     ComPtr<IMFVirtualCamera> vcam;
-    HRESULT hr = MFCreateVirtualCamera(
+    hr = MFCreateVirtualCamera(
         MFVirtualCameraType_SoftwareCameraSource,
         MFVirtualCameraLifetime_System,
         MFVirtualCameraAccess_CurrentUser,

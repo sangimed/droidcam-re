@@ -6,6 +6,7 @@ This roadmap applies to a new, independent DroidCam-compatible product implement
 
 - **Vertical slice:** Android sender and Windows receiver are implemented; the receiver decodes H.264 and displays a local preview. Android profiles, telemetry, and bounded/freshness-aware decode are in place.
 - **Windows virtual camera:** Media Foundation source, registration probe, bounded shared-memory bridge, synthetic producer, and receiver-frame publishing are implemented. Elevated registration succeeded on the test host, Windows enumerates `DroidCam Video`, and all six Windows CTest targets pass.
+- **Repeatable startup:** `tools/start-virtual-camera-test.ps1` verifies the persistent camera registration, starts/reuses the Windows receiver, and launches the Android app. Use `-Build` to rebuild both clients or `-RegisterCamera` for explicit one-time elevated registration.
 - **Compatibility gate:** Discord camera preview has not yet been confirmed. OBS and simultaneous OBS/Discord consumption, restart/recovery with consumers open, and the complete failure-injection matrix remain unverified. Do not mark the virtual webcam milestone complete until these checks have evidence.
 - **Next action:** In Discord, select `DroidCam Video` under User Settings → Voice & Video and confirm the private preview. Then complete the remaining Task 4 compatibility checks in the [Windows virtual-camera implementation plan](../superpowers/plans/2026-10-25-windows-virtual-camera.md). No camera broadcast was initiated during the current host test.
 

@@ -64,3 +64,9 @@ Environment scan during testing:
 - Frame Server validation also required `IMFMediaSourceEx`, `IKsControl`, and `IMFMediaStream2`, plus Frame Server stream attributes and matching stream identifiers. Those interfaces and attributes were added; the stream identifier mismatch found by `Start` (`MF_E_INVALIDSTREAMNUMBER`) was corrected and covered by regression assertions.
 - The updated `--register` command was then run elevated and succeeded, returning installation ID `{C69715A4-C9F8-4248-8DF9-AE6725D78825}`. Windows enumerates the device as `DroidCam Video` (`ROOT\\MEDIA\\0004`, status `OK`).
 - Discord camera preview is not yet verified. The UI showed the Voice & Video settings once but returned to the active channel during automated inspection. The camera was not turned on in the live voice channel, so no broadcast was initiated.
+
+## 7. Repeatable Local Startup (2026-10-31)
+
+- `tools/start-virtual-camera-test.ps1` checks the registered camera, starts or reuses the Windows receiver, and launches the Android app on one authorized ADB device. Run it from any directory with `powershell -File tools/start-virtual-camera-test.ps1`; pass `-Build` to build both apps first.
+- Camera registration is persistent and is not repeated during normal startup. If the camera is missing, `-RegisterCamera` explicitly requests Administrator approval to run the registration probe.
+- Host check: the script started the receiver (PID 25740), launched `dev.droidcamclone.app` on ADB device `d3ec6d70`, and confirmed `DroidCam Video` status `OK`. The user still enters the reachable Windows IPv4 address and taps **Connect** in Android; no Discord UI is opened by this script.
